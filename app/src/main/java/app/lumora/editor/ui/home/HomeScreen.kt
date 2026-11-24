@@ -46,7 +46,7 @@ import kotlinx.coroutines.delay
 
 /** Start screen: a slowly drifting wall of colourful prints, one bold line, and clear ways in. */
 @Composable
-fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> Unit) {
+fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> Unit, studioFirst: Boolean = false) {
     val editPicker = rememberLauncherForActivityResult(PickVisualMedia()) { it?.let(onEdit) }
     val enhancePicker = rememberLauncherForActivityResult(PickVisualMedia()) { it?.let(onEnhance) }
     val image = PickVisualMediaRequest(PickVisualMedia.ImageOnly)
@@ -80,20 +80,22 @@ fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> 
 
         Spacer(Modifier.height(24.dp))
         Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Appear(0) {
+            val editorCard: @Composable () -> Unit = {
                 SectionCard(
                     key = "editor", title = "Photo Editor",
                     subtitle = "Looks, pro tools, curves, crop, AI Enhance and AI upscale",
                     art = { EditorArt(it) }, onClick = edit,
                 )
             }
-            Appear(1) {
+            val studioCard: @Composable () -> Unit = {
                 SectionCard(
                     key = "studio", title = STUDIO_NAME,
                     subtitle = "Seamless carousels, panorama posts, collages and feed filters",
                     art = { StudioArt(it) }, onClick = onStudio,
                 )
             }
+            Appear(0) { if (studioFirst) studioCard() else editorCard() }
+            Appear(1) { if (studioFirst) editorCard() else studioCard() }
             Appear(2) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FeaturePill(Icons.Default.AutoAwesome, "AI Enhance", enhance)
@@ -223,7 +225,7 @@ private val prints = listOf(
 
 /** A tilted wall of rounded prints that drifts upward forever. Pure drawing, no image assets. */
 @Composable
-private fun PrintWall(modifier: Modifier) {
+fun PrintWall(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "wall")
     val drift by t.animateFloat(0f, 1f, infiniteRepeatable(tween(28000, easing = LinearEasing)), label = "drift")
     val frame = PanelHigh

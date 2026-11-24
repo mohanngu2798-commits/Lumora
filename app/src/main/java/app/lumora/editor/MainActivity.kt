@@ -27,17 +27,20 @@ import androidx.core.content.IntentCompat
 import app.lumora.editor.ui.editor.EditorScreen
 import app.lumora.editor.ui.editor.EditorViewModel
 import app.lumora.editor.ui.home.HomeScreen
+import app.lumora.editor.ui.intro.IntroScreen
+import app.lumora.editor.data.Prefs
 import app.lumora.editor.ui.studio.StudioScreen
 import app.lumora.editor.ui.studio.StudioViewModel
 import app.lumora.editor.ui.theme.LumoraTheme
 
-private enum class Screen { Home, Editor, Studio }
+private enum class Screen { Intro, Home, Editor, Studio }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 class MainActivity : ComponentActivity() {
     private val vm: EditorViewModel by viewModels()
     private val studio: StudioViewModel by viewModels()
     private var openFromIntent by mutableStateOf(false)
+    private val prefs by lazy { Prefs(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,9 +48,11 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) incomingImage(intent)?.let { vm.open(it); openFromIntent = true }
         setContent {
             LumoraTheme {
-                var screen by rememberSaveable { mutableStateOf(if (openFromIntent) Screen.Editor else Screen.Home) }
+                var screen by rememberSaveable { mutableStateOf(
+                    when { openFromIntent -> Screen.Editor; !prefs.onboarded -> Screen.Intro; else -> Screen.Home }) }
                 if (openFromIntent) { screen = Screen.Editor; openFromIntent = false }
-                BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
+                var studioFirst by rememberSaveable { mutableStateOf(prefs.studioFirst) }
+                BackHandler(enabled = screen == Screen.Editor || screen == Screen.Studio) { screen = Screen.Home }
                 SharedTransitionLayout {
                 AnimatedContent(
                     targetState = screen,
@@ -56,7 +61,14 @@ class MainActivity : ComponentActivity() {
                 ) { s ->
                     CompositionLocalProvider(LocalSharedScope provides this@SharedTransitionLayout, LocalScreenScope provides this) {
                     when (s) {
+                        Screen.Intro -> IntroScreen { a ->
+                            prefs.use = a.use; prefs.interests = a.interests; prefs.postTypes = a.postTypes
+                            prefs.onboarded = true
+                            studioFirst = prefs.studioFirst
+                            screen = Screen.Home
+                        }
                         Screen.Home -> HomeScreen(
+                            studioFirst = studioFirst,
                             onEdit = { vm.open(it); screen = Screen.Editor },
                             onEnhance = { vm.openAndEnhance(it); screen = Screen.Editor },
                             onStudio = { screen = Screen.Studio },
