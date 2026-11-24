@@ -15,6 +15,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import app.lumora.editor.ui.theme.*
+import app.lumora.editor.ui.motion.Springs
+import app.lumora.editor.ui.motion.squishClickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flip
@@ -42,11 +44,11 @@ internal fun LooksPanel(params: EditParams, vm: EditorViewModel) {
         itemsIndexed(Looks.all) { i, (name, look) ->
             val selected = (params.lookName ?: "Original") == name
             val a = Spectrum[i % Spectrum.size]; val b = Spectrum[(i + 2) % Spectrum.size]
-            val scale by animateFloatAsState(if (selected) 1.06f else 1f, spring(dampingRatio = 0.55f), label = "look")
+            val scale by animateFloatAsState(if (selected) 1.1f else 1f, Springs.squish(), label = "look")
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
-                    .clip(RoundedCornerShape(16.dp)).clickable { vm.commit(params.withLook(look, name)) },
+                modifier = Modifier.squishClickable(pressedScale = 0.86f) { vm.commit(params.withLook(look, name)) }
+                    .graphicsLayer { scaleX = scale; scaleY = scale },
             ) {
                 Box(
                     Modifier.size(64.dp).clip(RoundedCornerShape(16.dp))

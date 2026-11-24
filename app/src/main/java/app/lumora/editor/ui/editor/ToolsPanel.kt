@@ -29,6 +29,10 @@ import app.lumora.editor.model.BlurShape
 import app.lumora.editor.model.EditParams
 import app.lumora.editor.model.LeakStyles
 import app.lumora.editor.ui.theme.*
+import app.lumora.editor.ui.motion.Springs
+import app.lumora.editor.ui.motion.rememberSliderTicks
+import app.lumora.editor.ui.motion.squishClickable
+import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlin.math.roundToInt
 
 private class EffectTool(
@@ -109,12 +113,12 @@ private fun ToolTile(
     label: String, icon: ImageVector, accent: Color, selected: Boolean, changed: Boolean,
     gradient: Boolean = false, onClick: () -> Unit,
 ) {
-    val scale by animateFloatAsState(if (selected) 1.08f else 1f, spring(dampingRatio = 0.55f), label = "tile")
+    val scale by animateFloatAsState(if (selected) 1.1f else 1f, Springs.squish(), label = "tile")
     val ring by animateColorAsState(if (selected) accent else Color.Transparent, label = "ring")
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(68.dp).graphicsLayer { scaleX = scale; scaleY = scale }
-            .clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 4.dp),
+        modifier = Modifier.width(68.dp).squishClickable(pressedScale = 0.85f, onClick = onClick)
+            .graphicsLayer { scaleX = scale; scaleY = scale }.padding(vertical = 4.dp),
     ) {
         Box(
             Modifier.size(48.dp).clip(CircleShape)
@@ -137,13 +141,16 @@ internal fun ValueSlider(
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             val shown = if (label == "Exposure") "%+.2f".format(value) else "%+d".format((value * 100).roundToInt())
-            Text(shown, color = accent, fontWeight = FontWeight.Bold)
+            val pop by animateFloatAsState(if (value != 0f) 1.12f else 1f, Springs.squish(), label = "pop")
+            Text(shown, color = accent, fontWeight = FontWeight.Bold, modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop })
             TextButton(onClick = onReset) { Text("Reset") }
         }
+        val ticks = rememberSliderTicks(range)
+        val haptics = LocalHapticFeedback.current
         Slider(
             value = value,
-            onValueChange = onChange,
-            onValueChangeFinished = onDone,
+            onValueChange = { ticks.onValue(it) { t -> haptics.performHapticFeedback(t) }; onChange(it) },
+            onValueChangeFinished = { ticks.reset(); onDone() },
             valueRange = range,
             colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = accent, inactiveTrackColor = PanelHigh),
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -155,9 +162,9 @@ internal fun ValueSlider(
 internal fun ColorChip(label: String, accent: Color, selected: Boolean, swatch: Brush? = null, onClick: () -> Unit) {
     val bg by animateColorAsState(if (selected) accent.copy(alpha = 0.25f) else PanelHigh, label = "chip")
     Row(
-        Modifier.clip(RoundedCornerShape(50)).background(bg)
+        Modifier.squishClickable(pressedScale = 0.9f, onClick = onClick).clip(RoundedCornerShape(50)).background(bg)
             .border(1.dp, if (selected) accent else Color.Transparent, RoundedCornerShape(50))
-            .clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (swatch != null) {

@@ -37,6 +37,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.lumora.editor.gl.PreviewView
 import app.lumora.editor.ui.theme.*
+import app.lumora.editor.ui.motion.Springs
+import app.lumora.editor.ui.motion.squishClickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 
 private enum class EditorPanel(val label: String, val icon: ImageVector) {
     Looks("Looks", Icons.Default.Palette),
@@ -96,8 +100,10 @@ fun EditorScreen(vm: EditorViewModel) {
                                 modifier = Modifier.fillMaxSize(),
                             )
                             // Press and hold to see the photo without edits.
+                            val holdScale by animateFloatAsState(if (comparing) 1.18f else 1f, Springs.squish(), label = "hold")
                             Box(
                                 Modifier.align(Alignment.BottomEnd).padding(12.dp)
+                                    .graphicsLayer { scaleX = holdScale; scaleY = holdScale }
                                     .clip(CircleShape)
                                     .background(if (comparing) BrandGradient else Brush.linearGradient(listOf(PanelHigh, PanelHigh)))
                                     .pointerInput(Unit) {
@@ -125,13 +131,16 @@ fun EditorScreen(vm: EditorViewModel) {
             ) {
                 Surface(color = PanelBg, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
                     Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
-                        Box(Modifier.fillMaxWidth().heightIn(min = 150.dp).animateContentSize(spring(stiffness = Spring.StiffnessMediumLow))) {
+                        Box(Modifier.fillMaxWidth().heightIn(min = 150.dp).animateContentSize(Springs.glide())) {
                             AnimatedContent(
                                 targetState = panel,
                                 transitionSpec = {
                                     val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                                    (slideInHorizontally(tween(260)) { it / 6 * dir } + fadeIn(tween(260)))
-                                        .togetherWith(slideOutHorizontally(tween(200)) { -it / 6 * dir } + fadeOut(tween(160)))
+                                    (slideInHorizontally(Springs.glide()) { it / 4 * dir } + fadeIn(tween(220)) +
+                                        scaleIn(Springs.glide(), initialScale = 0.96f))
+                                        .togetherWith(slideOutHorizontally(Springs.glide()) { -it / 4 * dir } + fadeOut(tween(140)) +
+                                            scaleOut(tween(180), targetScale = 0.96f))
+                                        .using(SizeTransform(clip = false) { _, _ -> Springs.glide() })
                                 },
                                 label = "panel",
                             ) { p ->
@@ -156,25 +165,49 @@ fun EditorScreen(vm: EditorViewModel) {
 
 @Composable
 private fun PanelTabs(current: EditorPanel, onSelect: (EditorPanel) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-    ) {
-        EditorPanel.entries.forEachIndexed { i, p ->
-            val selected = p == current
-            val accent = Spectrum[i % Spectrum.size]
-            val tint by animateColorAsState(if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant, label = "tab")
-            val scale by animateFloatAsState(if (selected) 1.12f else 1f, spring(dampingRatio = 0.5f), label = "tabScale")
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clip(RoundedCornerShape(14.dp)).clickable { onSelect(p) }.padding(horizontal = 10.dp, vertical = 6.dp),
-            ) {
-                Icon(p.icon, null, tint = tint, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
-                Text(p.label, color = tint, style = MaterialTheme.typography.labelSmall)
-                Box(
-                    Modifier.padding(top = 3.dp).height(3.dp).width(if (selected) 18.dp else 0.dp)
-                        .clip(RoundedCornerShape(2.dp)).background(accent)
-                )
+    val count = EditorPanel.entries.size
+    val index = current.ordinal
+    // Liquid indicator: the leading edge races ahead and the trailing edge catches up,
+    // so the pill stretches while it glides and settles with a soft bounce.
+    var last by remember { mutableIntStateOf(index) }
+    val movingRight = index >= last
+    SideEffect { last = index }
+    val fast = spring<Float>(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium)
+    val slow = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessLow)
+    val left by animateFloatAsState(index.toFloat(), if (movingRight) slow else fast, label = "left")
+    val right by animateFloatAsState(index + 1f, if (movingRight) fast else slow, label = "right")
+    val accent by animateColorAsState(Spectrum[index % Spectrum.size], tween(350), label = "accent")
+    val haptics = LocalHapticFeedback.current
+
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)) {
+        val slot = maxWidth / count
+        Box(
+            Modifier
+                .offset(x = slot * left + 6.dp)
+                .width(slot * (right - left) - 12.dp)
+                .height(56.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.32f), accent.copy(alpha = 0.12f))))
+        )
+        Row(Modifier.fillMaxWidth()) {
+            EditorPanel.entries.forEachIndexed { i, p ->
+                val selected = p == current
+                val tint by animateColorAsState(
+                    if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, tween(250), label = "tab")
+                val lift by animateFloatAsState(if (selected) 1.15f else 1f, Springs.squish(), label = "lift")
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(20.dp))
+                        .squishClickable(haptic = false) {
+                            if (!selected) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelect(p)
+                        },
+                ) {
+                    Icon(p.icon, null, tint = if (selected) accent else tint,
+                        modifier = Modifier.graphicsLayer { scaleX = lift; scaleY = lift })
+                    Text(p.label, color = tint, style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
@@ -184,9 +217,9 @@ private fun PanelTabs(current: EditorPanel, onSelect: (EditorPanel) -> Unit) {
 internal fun GradientButton(text: String, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier
+            .squishClickable(enabled = enabled, onClick = onClick)
             .clip(RoundedCornerShape(50))
             .background(if (enabled) BrandGradient else Brush.linearGradient(listOf(PanelHigh, PanelHigh)))
-            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -232,8 +265,8 @@ private fun SaveSheet(onDismiss: () -> Unit, onSave: (Int) -> Unit) {
 @Composable
 private fun SaveOption(icon: ImageVector, title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(16.dp)).background(PanelHigh)
-            .clickable(onClick = onClick).padding(14.dp),
+        Modifier.fillMaxWidth().padding(vertical = 5.dp).squishClickable(pressedScale = 0.96f, onClick = onClick)
+            .clip(RoundedCornerShape(16.dp)).background(PanelHigh).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(40.dp).clip(CircleShape).background(accent.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
