@@ -1,23 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Vannamayam mark: a "V" of two rounded strokes, warm and cool, meeting at a point, with a golden spark. -->
+<!-- Vannamayam monogram: a high-contrast "V" with one colourful dot. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <group android:translateX="-6" android:translateY="-6" android:scaleX="1.11" android:scaleY="1.11">
-        <path android:pathData="M32,34 L54,78" android:strokeWidth="15" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="32" android:startY="34" android:endX="54" android:endY="78"
-                    android:startColor="#FFE8336F" android:endColor="#FFFF7A2F" />
+    <group android:translateX="-12" android:translateY="-12" android:scaleX="1.25" android:scaleY="1.25">
+        <path android:fillColor="#FF111014" android:pathData="M30,32 H43 L56.5,68 L71,32 H78 L56,79 H52 Z" />
+        <path android:pathData="M82,67 a5,5 0 1,1 0,10 a5,5 0 1,1 0,-10z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="77" android:startY="67" android:endX="87" android:endY="77">
+                    <item android:offset="0" android:color="#FFE8336F" />
+                    <item android:offset="0.5" android:color="#FFFF7A2F" />
+                    <item android:offset="1" android:color="#FFFFB800" />
+                </gradient>
             </aapt:attr>
         </path>
-        <path android:pathData="M76,34 L54,78" android:strokeWidth="15" android:strokeLineCap="round" android:fillColor="#00000000">
-            <aapt:attr name="android:strokeColor">
-                <gradient android:type="linear" android:startX="76" android:startY="34" android:endX="54" android:endY="78"
-                    android:startColor="#FF6C4DFF" android:endColor="#FF14A99B" />
-            </aapt:attr>
-        </path>
-        <path android:fillColor="#FFFFB800"
-            android:pathData="M54,22 l2.6,6.4 l6.4,2.6 l-6.4,2.6 l-2.6,6.4 l-2.6,-6.4 l-6.4,-2.6 l6.4,-2.6z" />
     </group>
 </vector>

@@ -53,6 +53,8 @@ import app.lumora.editor.model.SlideFormat
 import app.lumora.editor.ui.editor.ColorChip
 import app.lumora.editor.ui.editor.GradientButton
 import app.lumora.editor.ui.motion.Springs
+import app.lumora.editor.ui.motion.STUDIO_NAME
+import app.lumora.editor.ui.motion.morph
 import app.lumora.editor.ui.motion.squishClickable
 import app.lumora.editor.ui.theme.*
 import kotlin.math.abs
@@ -89,12 +91,13 @@ fun StudioScreen(vm: StudioViewModel, onBack: () -> Unit) {
     LaunchedEffect(s.selected) { if (s.selected != null && tab != StudioTab.Filters) tab = StudioTab.Photo }
 
     Scaffold(
+        modifier = Modifier.morph("studio"),
         containerColor = Ink,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") } },
-                title = { Text("Instagram Studio", maxLines = 1, softWrap = false, style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.SemiBold)) },
+                title = { Text(STUDIO_NAME, maxLines = 1, softWrap = false, style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.SemiBold)) },
                 actions = {
                     IconButton(onClick = pick) { Icon(Icons.Default.AddPhotoAlternate, "Add photos") }
                     GradientButton("Save", enabled = s.carousel.layers.isNotEmpty() && !s.busy, onClick = vm::export)

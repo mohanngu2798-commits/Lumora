@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.lumora.editor.gl.PreviewView
 import app.lumora.editor.ui.theme.*
 import app.lumora.editor.ui.motion.Springs
+import app.lumora.editor.ui.motion.morph
 import app.lumora.editor.ui.motion.squishClickable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -68,6 +69,7 @@ fun EditorScreen(vm: EditorViewModel, onHome: () -> Unit) {
     }
 
     Scaffold(
+        modifier = Modifier.morph("editor"),
         containerColor = Ink,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
@@ -107,12 +109,12 @@ fun EditorScreen(vm: EditorViewModel, onHome: () -> Unit) {
                                 Modifier.align(Alignment.BottomEnd).padding(12.dp)
                                     .graphicsLayer { scaleX = holdScale; scaleY = holdScale }
                                     .clip(CircleShape)
-                                    .background(if (comparing) BrandGradient else Brush.linearGradient(listOf(PanelHigh, PanelHigh)))
+                                    .background(if (comparing) OnInk else Ink.copy(alpha = 0.85f))
                                     .pointerInput(Unit) {
                                         detectTapGestures(onPress = { comparing = true; tryAwaitRelease(); comparing = false })
                                     }
                                     .padding(10.dp)
-                            ) { Icon(Icons.Default.Compare, "Hold to compare with original") }
+                            ) { Icon(Icons.Default.Compare, "Hold to compare with original", tint = if (comparing) Ink else OnInk) }
                             val labelAlpha by animateFloatAsState(if (comparing) 1f else 0f, tween(180), label = "origLabel")
                             Text(
                                 "Original",
@@ -177,7 +179,7 @@ private fun PanelTabs(current: EditorPanel, onSelect: (EditorPanel) -> Unit) {
     val slow = spring<Float>(dampingRatio = 0.75f, stiffness = Spring.StiffnessLow)
     val left by animateFloatAsState(index.toFloat(), if (movingRight) slow else fast, label = "left")
     val right by animateFloatAsState(index + 1f, if (movingRight) fast else slow, label = "right")
-    val accent by animateColorAsState(Spectrum[index % Spectrum.size], tween(350), label = "accent")
+    val accent = OnInk
     val haptics = LocalHapticFeedback.current
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp)) {
@@ -188,7 +190,7 @@ private fun PanelTabs(current: EditorPanel, onSelect: (EditorPanel) -> Unit) {
                 .width(slot * (right - left) - 12.dp)
                 .height(56.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(Brush.verticalGradient(listOf(accent.copy(alpha = 0.32f), accent.copy(alpha = 0.12f))))
+                .background(PanelHigh)
         )
         Row(Modifier.fillMaxWidth()) {
             EditorPanel.entries.forEachIndexed { i, p ->
@@ -205,7 +207,7 @@ private fun PanelTabs(current: EditorPanel, onSelect: (EditorPanel) -> Unit) {
                             onSelect(p)
                         },
                 ) {
-                    Icon(p.icon, null, tint = if (selected) accent else tint,
+                    Icon(p.icon, null, tint = tint,
                         modifier = Modifier.graphicsLayer { scaleX = lift; scaleY = lift })
                     Text(p.label, color = tint, style = MaterialTheme.typography.labelSmall)
                 }
@@ -214,17 +216,20 @@ private fun PanelTabs(current: EditorPanel, onSelect: (EditorPanel) -> Unit) {
     }
 }
 
+/** Primary action: a solid pill in the text colour (black in light mode, white in dark). */
 @Composable
 internal fun GradientButton(text: String, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val bg = if (enabled) OnInk else PanelHigh
+    val fg = if (enabled) Ink else MaterialTheme.colorScheme.onSurfaceVariant
     Box(
         modifier
             .squishClickable(enabled = enabled, onClick = onClick)
             .clip(RoundedCornerShape(50))
-            .background(if (enabled) BrandGradient else Brush.linearGradient(listOf(PanelHigh, PanelHigh)))
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+            .background(bg)
+            .padding(horizontal = 18.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
+        Text(text, color = fg, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 }
 
@@ -254,7 +259,7 @@ private fun BusyOverlay(label: String?, progress: Float?) {
 private fun SaveSheet(onDismiss: () -> Unit, onSave: (Int) -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = PanelBg) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-            Text("Save photo", style = MaterialTheme.typography.titleLarge.copy(brush = BrandGradient, fontWeight = FontWeight.Bold))
+            Text("Save photo", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
             SaveOption(Icons.Default.Image, "Full resolution", "Your photo at its original size", Peacock) { onSave(1) }
             SaveOption(Icons.Default.Hd, "AI upscale 2x", "Twice the size, AI-sharpened details", Saffron) { onSave(2) }
@@ -270,7 +275,7 @@ private fun SaveOption(icon: ImageVector, title: String, subtitle: String, accen
             .clip(RoundedCornerShape(16.dp)).background(PanelHigh).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background(accent.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(Ink), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = accent)
         }
         Spacer(Modifier.width(14.dp))
@@ -296,12 +301,12 @@ private fun AiPill(active: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.padding(end = 4.dp).squishClickable(enabled = enabled, onClick = onClick)
             .clip(RoundedCornerShape(50))
-            .background(if (active) BrandGradient else Brush.linearGradient(listOf(PanelHigh, PanelHigh)))
+            .background(if (active) OnInk else PanelHigh)
             .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Default.AutoAwesome, null, tint = if (active) Color.White else Magenta, modifier = Modifier.size(16.dp))
+        Icon(Icons.Default.AutoAwesome, null, tint = Magenta, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(5.dp))
-        Text("AI", fontWeight = FontWeight.SemiBold, color = if (active) Color.White else OnInk)
+        Text("AI", fontWeight = FontWeight.SemiBold, color = if (active) Ink else OnInk)
     }
 }

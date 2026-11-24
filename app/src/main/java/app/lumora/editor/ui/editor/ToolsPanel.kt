@@ -113,21 +113,22 @@ private fun ToolTile(
     label: String, icon: ImageVector, accent: Color, selected: Boolean, changed: Boolean,
     gradient: Boolean = false, onClick: () -> Unit,
 ) {
-    val scale by animateFloatAsState(if (selected) 1.1f else 1f, Springs.squish(), label = "tile")
-    val ring by animateColorAsState(if (selected) accent else Color.Transparent, label = "ring")
+    val scale by animateFloatAsState(if (selected) 1.06f else 1f, Springs.squish(), label = "tile")
+    val bg by animateColorAsState(if (selected) OnInk else PanelHigh, label = "tileBg")
+    val fg by animateColorAsState(if (selected) Ink else OnInk, label = "tileFg")
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(68.dp).squishClickable(pressedScale = 0.85f, onClick = onClick)
+        modifier = Modifier.width(68.dp).squishClickable(pressedScale = 0.88f, onClick = onClick)
             .graphicsLayer { scaleX = scale; scaleY = scale }.padding(vertical = 4.dp),
     ) {
-        Box(
-            Modifier.size(48.dp).clip(CircleShape)
-                .background(if (gradient) BrandGradient else Brush.linearGradient(listOf(accent.copy(alpha = 0.28f), accent.copy(alpha = 0.12f))))
-                .border(2.dp, ring, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, tint = if (gradient) Color.White else accent) }
-        Spacer(Modifier.height(4.dp))
-        Text(if (changed) "$label •" else label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        Box(contentAlignment = Alignment.TopEnd) {
+            Box(Modifier.size(50.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = if (gradient) Magenta else fg)
+            }
+            if (changed) Box(Modifier.size(9.dp).clip(CircleShape).background(accent))
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }
 
@@ -142,7 +143,7 @@ internal fun ValueSlider(
             Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             val shown = if (label == "Exposure") "%+.2f".format(value) else "%+d".format((value * 100).roundToInt())
             val pop by animateFloatAsState(if (value != 0f) 1.12f else 1f, Springs.squish(), label = "pop")
-            Text(shown, color = accent, fontWeight = FontWeight.Bold, modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop })
+            Text(shown, color = OnInk, fontWeight = FontWeight.SemiBold, modifier = Modifier.graphicsLayer { scaleX = pop; scaleY = pop })
             TextButton(onClick = onReset) { Text("Reset") }
         }
         val ticks = rememberSliderTicks(range)
@@ -152,25 +153,27 @@ internal fun ValueSlider(
             onValueChange = { ticks.onValue(it) { t -> haptics.performHapticFeedback(t) }; onChange(it) },
             onValueChangeFinished = { ticks.reset(); onDone() },
             valueRange = range,
-            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent, inactiveTrackColor = PanelHigh),
+            colors = SliderDefaults.colors(thumbColor = OnInk, activeTrackColor = OnInk, inactiveTrackColor = PanelHigh),
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
 }
 
+/** Pill chip: outlined when idle, filled with the text colour when selected. */
 @Composable
 internal fun ColorChip(label: String, accent: Color, selected: Boolean, swatch: Brush? = null, onClick: () -> Unit) {
-    val bg by animateColorAsState(if (selected) accent.copy(alpha = 0.25f) else PanelHigh, label = "chip")
+    val bg by animateColorAsState(if (selected) OnInk else Ink, label = "chip")
+    val fg by animateColorAsState(if (selected) Ink else OnInk, label = "chipFg")
     Row(
-        Modifier.squishClickable(pressedScale = 0.9f, onClick = onClick).clip(RoundedCornerShape(50)).background(bg)
-            .border(1.dp, if (selected) accent else Color.Transparent, RoundedCornerShape(50))
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+        Modifier.squishClickable(pressedScale = 0.92f, onClick = onClick).clip(RoundedCornerShape(50)).background(bg)
+            .border(1.dp, if (selected) OnInk else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(50))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (swatch != null) {
             Box(Modifier.size(14.dp).clip(CircleShape).background(swatch))
             Spacer(Modifier.width(6.dp))
         }
-        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) OnInk else MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
     }
 }

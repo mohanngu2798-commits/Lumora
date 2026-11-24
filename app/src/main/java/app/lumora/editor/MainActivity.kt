@@ -9,6 +9,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.runtime.CompositionLocalProvider
+import app.lumora.editor.ui.motion.LocalScreenScope
+import app.lumora.editor.ui.motion.LocalSharedScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +33,7 @@ import app.lumora.editor.ui.theme.LumoraTheme
 
 private enum class Screen { Home, Editor, Studio }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 class MainActivity : ComponentActivity() {
     private val vm: EditorViewModel by viewModels()
     private val studio: StudioViewModel by viewModels()
@@ -42,11 +48,13 @@ class MainActivity : ComponentActivity() {
                 var screen by rememberSaveable { mutableStateOf(if (openFromIntent) Screen.Editor else Screen.Home) }
                 if (openFromIntent) { screen = Screen.Editor; openFromIntent = false }
                 BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
+                SharedTransitionLayout {
                 AnimatedContent(
                     targetState = screen,
-                    transitionSpec = { (fadeIn(tween(260)) + scaleIn(tween(260), initialScale = 0.97f)) togetherWith fadeOut(tween(180)) },
+                    transitionSpec = { fadeIn(tween(300, delayMillis = 60)) togetherWith fadeOut(tween(220)) },
                     label = "screen",
                 ) { s ->
+                    CompositionLocalProvider(LocalSharedScope provides this@SharedTransitionLayout, LocalScreenScope provides this) {
                     when (s) {
                         Screen.Home -> HomeScreen(
                             onEdit = { vm.open(it); screen = Screen.Editor },
@@ -56,6 +64,8 @@ class MainActivity : ComponentActivity() {
                         Screen.Editor -> EditorScreen(vm, onHome = { screen = Screen.Home })
                         Screen.Studio -> StudioScreen(studio, onBack = { screen = Screen.Home })
                     }
+                    }
+                }
                 }
             }
         }
