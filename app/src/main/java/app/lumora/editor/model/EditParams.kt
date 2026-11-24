@@ -17,6 +17,15 @@ data class EditParams(
     val sharpen: Float = 0f,      // 0..1
     val vignette: Float = 0f,     // -1..1 (negative = light vignette)
     val grain: Float = 0f,        // 0..1
+    // Detail and effect tools. These read a blurred copy of the photo, so they are local, not per-pixel.
+    val clarity: Float = 0f,      // -1..1 midtone local contrast
+    val dehaze: Float = 0f,       // -1..1 (negative adds haze)
+    val hdr: Float = 0f,          // 0..1 strong local tone mapping ("drama")
+    val glow: Float = 0f,         // 0..1 soft bloom from bright areas
+    val lensBlur: Float = 0f,     // 0..1 background blur strength
+    val blurShape: BlurShape = BlurShape.Radial,
+    val lightLeak: Float = 0f,    // 0..1
+    val leakStyle: Int = 0,       // index into LeakStyles
     val curves: Curves = Curves(),
     val crop: CropSpec = CropSpec(),
     val lookName: String? = null,
@@ -61,4 +70,17 @@ data class CropSpec(
         val h = (srcHeight * r[3]).toInt().coerceAtLeast(1)
         return if (swapsSides) h to w else w to h
     }
+}
+
+/** Where the lens blur keeps the photo sharp. */
+enum class BlurShape(val label: String) { Radial("Circle"), Linear("Band") }
+
+/** Colour pairs for the light leak effect, as 0xRRGGBB. */
+object LeakStyles {
+    val all: List<Pair<String, Pair<Int, Int>>> = listOf(
+        "Sunset" to (0xFF5E3A to 0xFFC93C),
+        "Rose" to (0xFF3D7F to 0xFF9E6B),
+        "Lagoon" to (0x2EC4B6 to 0x7B5CFF),
+        "Festival" to (0xFF2E93 to 0xFFD23F),
+    )
 }

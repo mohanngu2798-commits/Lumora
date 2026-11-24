@@ -3,7 +3,18 @@ package app.lumora.editor.ui.editor
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import app.lumora.editor.ui.theme.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flip
@@ -24,13 +35,29 @@ import kotlin.math.roundToInt
 @Composable
 internal fun LooksPanel(params: EditParams, vm: EditorViewModel) {
     LazyRow(
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        items(Looks.all) { (name, look) ->
+        itemsIndexed(Looks.all) { i, (name, look) ->
             val selected = (params.lookName ?: "Original") == name
-            FilterChip(selected = selected, onClick = { vm.commit(params.withLook(look, name)) }, label = { Text(name) })
+            val a = Spectrum[i % Spectrum.size]; val b = Spectrum[(i + 2) % Spectrum.size]
+            val scale by animateFloatAsState(if (selected) 1.06f else 1f, spring(dampingRatio = 0.55f), label = "look")
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+                    .clip(RoundedCornerShape(16.dp)).clickable { vm.commit(params.withLook(look, name)) },
+            ) {
+                Box(
+                    Modifier.size(64.dp).clip(RoundedCornerShape(16.dp))
+                        .background(if (name == "Original") Brush.linearGradient(listOf(PanelHigh, PanelHigh)) else Brush.linearGradient(listOf(a, b)))
+                        .border(2.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center,
+                ) { Text(name.take(1), color = Color.White, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.height(6.dp))
+                Text(name, style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }
@@ -61,32 +88,19 @@ private val adjustTools = listOf(
 internal fun AdjustPanel(params: EditParams, vm: EditorViewModel) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     val tool = adjustTools[selected]
+    val accent = Spectrum[selected % Spectrum.size]
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(tool.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-            val v = tool.get(params)
-            val shown = if (tool.label == "Exposure") "%+.2f".format(v) else "%+d".format((v * 100).roundToInt())
-            Text(shown, color = MaterialTheme.colorScheme.primary)
-            TextButton(onClick = { vm.commit(tool.set(params, 0f)) }) { Text("Reset") }
-        }
-        Slider(
-            value = tool.get(params),
-            onValueChange = { vm.preview(tool.set(params, it)) },
-            onValueChangeFinished = { vm.commit() },
-            valueRange = tool.range,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
+        ValueSlider(tool.label, accent, tool.range, tool.get(params),
+            onChange = { vm.preview(tool.set(params, it)) },
+            onDone = { vm.commit() },
+            onReset = { vm.commit(tool.set(params, 0f)) })
         Row(
             Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             adjustTools.forEachIndexed { i, t ->
                 val changed = t.get(params) != 0f
-                FilterChip(
-                    selected = i == selected,
-                    onClick = { selected = i },
-                    label = { Text(if (changed) "${t.label} •" else t.label) },
-                )
+                ColorChip(if (changed) "${t.label} •" else t.label, Spectrum[i % Spectrum.size], i == selected) { selected = i }
             }
         }
     }
@@ -112,7 +126,7 @@ internal fun CurvesPanel(params: EditParams, vm: EditorViewModel) {
         Spacer(Modifier.width(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             CurveChannel.entries.forEach { c ->
-                FilterChip(selected = c == channel, onClick = { channel = c }, label = { Text(c.name) })
+                ColorChip(c.name, color, c == channel) { channel = c }
             }
             TextButton(onClick = { vm.commit(params.copy(curves = params.curves.with(channel, CurvePoints()))) }) {
                 Text("Reset")
@@ -139,11 +153,7 @@ internal fun CropPanel(params: EditParams, vm: EditorViewModel) {
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             aspects.forEach { (label, a) ->
-                FilterChip(
-                    selected = crop.aspect == a,
-                    onClick = { vm.commit(params.copy(crop = crop.copy(aspect = a))) },
-                    label = { Text(label) },
-                )
+                ColorChip(label, Peacock, crop.aspect == a) { vm.commit(params.copy(crop = crop.copy(aspect = a))) }
             }
         }
         Spacer(Modifier.height(12.dp))

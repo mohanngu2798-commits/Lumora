@@ -49,7 +49,7 @@ class PreviewView(context: Context) : GLSurfaceView(context) {
             pendingBitmap?.let { if (!it.isRecycled) r.setImage(it) }
             pendingBitmap = null
 
-            GLES30.glClearColor(0.059f, 0.067f, 0.082f, 1f)
+            GLES30.glClearColor(0.055f, 0.043f, 0.086f, 1f)
             GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
             if (!r.hasImage) return
 

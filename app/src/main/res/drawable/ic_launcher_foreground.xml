@@ -1,10 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placeholder mark: an aperture-like ring with a light spark. Replace with final branding. -->
+<!-- Vannamayam mark: five coloured petals, like a kolam flower, around a bright centre. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFB547" android:strokeWidth="5"
-        android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
-    <path android:fillColor="#FF7AD7F0"
-        android:pathData="M54,42l3.5,8.5l8.5,3.5l-8.5,3.5l-3.5,8.5l-3.5,-8.5l-8.5,-3.5l8.5,-3.5z" />
+    <group android:pivotX="54" android:pivotY="54" android:rotation="0">
+        <path android:fillColor="#FFFF3D7F" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="72">
+        <path android:fillColor="#FFFF8A3D" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="144">
+        <path android:fillColor="#FFFFD23F" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="216">
+        <path android:fillColor="#FF2EC4B6" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
+    </group>
+    <group android:pivotX="54" android:pivotY="54" android:rotation="288">
+        <path android:fillColor="#FF7B5CFF" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
+    </group>
+    <path android:fillColor="#FFFFFFFF" android:pathData="M54,49a5,5 0,1 1,0 10a5,5 0,1 1,0 -10z" />
 </vector>

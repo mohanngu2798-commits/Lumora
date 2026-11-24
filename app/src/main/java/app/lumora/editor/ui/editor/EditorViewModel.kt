@@ -5,7 +5,9 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.lumora.editor.ai.Upscaler
 import app.lumora.editor.data.PhotoStore
+import app.lumora.editor.model.AutoEnhance
 import app.lumora.editor.gl.Exporter
 import app.lumora.editor.model.EditParams
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +27,9 @@ data class EditorState(
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val busy: Boolean = false,
+    /** 0..1 while a long task (AI upscale) runs, else null. */
+    val progress: Float? = null,
+    val busyLabel: String? = null,
     val message: String? = null,
 )
 
@@ -63,6 +68,22 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         publish()
     }
 
+    /** Measures the photo and sets the sliders to a balanced starting point. */
+    fun autoEnhance() {
+        val bmp = _state.value.preview ?: return
+        viewModelScope.launch {
+            val p = withContext(Dispatchers.Default) {
+                val small = Bitmap.createScaledBitmap(bmp, 256, (256f * bmp.height / bmp.width).toInt().coerceAtLeast(1), true)
+                val px = IntArray(small.width * small.height)
+                small.getPixels(px, 0, small.width, 0, 0, small.width, small.height)
+                if (small !== bmp) small.recycle()
+                AutoEnhance.analyze(px, _state.value.params)
+            }
+            commit(p.copy(lookName = null))
+            _state.update { it.copy(message = "Auto enhanced. Every slider is still yours to tweak.") }
+        }
+    }
+
     fun undo() { if (cursor > 0) { cursor--; publish() } }
     fun redo() { if (cursor < history.lastIndex) { cursor++; publish() } }
 
@@ -70,22 +91,48 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         it.copy(params = history[cursor], canUndo = cursor > 0, canRedo = cursor < history.lastIndex)
     }
 
-    fun export() {
+    /**
+     * Saves the edit. [scale] 1 saves at full resolution; 2 or 4 runs the on-device AI upscaler.
+     */
+    fun export(scale: Int = 1) {
         val s = _state.value
         val uri = s.sourceUri ?: return
-        _state.update { it.copy(busy = true) }
+        if (s.busy) return
+        _state.update { it.copy(busy = true, busyLabel = if (scale > 1) "AI upscaling ${scale}x" else "Saving", progress = null) }
         viewModelScope.launch {
             runCatching {
-                withContext(glThread) {
+                var out = withContext(glThread) {
                     val maxEdge = minOf(Exporter.maxTextureSize(), EXPORT_EDGE_CAP)
                     val full = withContext(Dispatchers.IO) { store.decode(uri, maxEdge) }
-                    val out = Exporter.render(full, s.params)
-                    full.recycle()
-                    withContext(Dispatchers.IO) { store.saveJpeg(out) }.also { out.recycle() }
+                    Exporter.render(full, s.params).also { full.recycle() }
                 }
-            }.onSuccess { _state.update { it.copy(busy = false, message = "Saved to Pictures/Vannamayam") } }
-             .onFailure { e -> _state.update { it.copy(busy = false, message = "Export failed: ${e.message}") } }
+                if (scale > 1) out = withContext(Dispatchers.Default) { aiUpscale(out, scale) }
+                withContext(Dispatchers.IO) { store.saveJpeg(out) }
+                "Saved ${out.width}×${out.height} to Pictures/Vannamayam".also { out.recycle() }
+            }.onSuccess { msg -> _state.update { it.copy(busy = false, progress = null, busyLabel = null, message = msg) } }
+             .onFailure { e ->
+                 val why = if (e is OutOfMemoryError) "not enough memory, try 2x" else e.message
+                 _state.update { it.copy(busy = false, progress = null, busyLabel = null, message = "Save failed: $why") }
+             }
         }
+    }
+
+    /** Runs the 4x model on an input capped at [AI_INPUT_EDGE], then sizes the result to [scale]x. */
+    private fun aiUpscale(edited: Bitmap, scale: Int): Bitmap {
+        val long = maxOf(edited.width, edited.height)
+        val input = if (long > AI_INPUT_EDGE) {
+            val f = AI_INPUT_EDGE.toFloat() / long
+            Bitmap.createScaledBitmap(edited, (edited.width * f).toInt().coerceAtLeast(1), (edited.height * f).toInt().coerceAtLeast(1), true)
+                .also { edited.recycle() }
+        } else edited
+        val big = Upscaler(getApplication()).use { up ->
+            up.upscale4x(input) { p -> _state.update { it.copy(progress = p) } }
+        }
+        val targetLong = minOf(long * scale, maxOf(big.width, big.height))
+        val f = targetLong.toFloat() / maxOf(big.width, big.height)
+        input.recycle()
+        if (f >= 0.999f) return big
+        return Bitmap.createScaledBitmap(big, (big.width * f).toInt(), (big.height * f).toInt(), true).also { big.recycle() }
     }
 
     fun messageShown() = _state.update { it.copy(message = null) }
@@ -96,5 +143,6 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         const val PREVIEW_EDGE = 2048
         const val EXPORT_EDGE_CAP = 8192
         const val MAX_HISTORY = 100
+        const val AI_INPUT_EDGE = 1200
     }
 }
