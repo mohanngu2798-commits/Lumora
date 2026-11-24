@@ -111,13 +111,12 @@ fun EditorScreen(vm: EditorViewModel) {
                                     }
                                     .padding(10.dp)
                             ) { Icon(Icons.Default.Compare, "Hold to compare with original") }
-                            AnimatedVisibility(
-                                visible = comparing,
-                                enter = fadeIn(), exit = fadeOut(),
-                                modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
-                            ) {
-                                Text("Original", Modifier.background(PanelHigh, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp))
-                            }
+                            val labelAlpha by animateFloatAsState(if (comparing) 1f else 0f, tween(180), label = "origLabel")
+                            Text(
+                                "Original",
+                                Modifier.align(Alignment.TopCenter).padding(12.dp).graphicsLayer { alpha = labelAlpha }
+                                    .background(PanelHigh, RoundedCornerShape(50)).padding(horizontal = 12.dp, vertical = 4.dp),
+                            )
                         }
                     }
                 }
