@@ -1,4 +1,4 @@
-# Lumora — a free, private photo editor for Android
+# Vannamayam — a free, private photo editor for Android
 
 Working name; rename freely (see "Renaming" below). Every tool is free, there are no ads,
 and the app has no internet permission: all editing happens on the device's GPU.
@@ -14,13 +14,13 @@ and the app has no internet permission: all editing happens on the device's GPU.
 
 ## What works now (v0.1)
 
-- Open from the photo picker, or "Share / Edit with Lumora" from any gallery app
+- Open from the photo picker, or "Share / Edit with Vannamayam" from any gallery app
 - **Looks:** 10 original one-tap presets
 - **Adjust:** exposure, contrast, highlights, shadows, saturation, vibrance, warmth, tint, fade, sharpen, vignette, grain
 - **Curves:** master + R/G/B with draggable points (monotone cubic interpolation)
 - **Crop:** aspect presets (original, 1:1, 4:5, 3:2, 16:9, 9:16), rotate 90°, flip
 - Press-and-hold compare, unlimited-ish undo/redo (100 steps)
-- Full-resolution export (up to the GPU limit, max 8192px) as JPEG to `Pictures/Lumora`
+- Full-resolution export (up to the GPU limit, max 8192px) as JPEG to `Pictures/Vannamayam`
 
 ## Roadmap
 

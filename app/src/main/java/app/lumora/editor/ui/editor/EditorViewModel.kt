@@ -83,7 +83,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                     full.recycle()
                     withContext(Dispatchers.IO) { store.saveJpeg(out) }.also { out.recycle() }
                 }
-            }.onSuccess { _state.update { it.copy(busy = false, message = "Saved to Pictures/Lumora") } }
+            }.onSuccess { _state.update { it.copy(busy = false, message = "Saved to Pictures/Vannamayam") } }
              .onFailure { e -> _state.update { it.copy(busy = false, message = "Export failed: ${e.message}") } }
         }
     }

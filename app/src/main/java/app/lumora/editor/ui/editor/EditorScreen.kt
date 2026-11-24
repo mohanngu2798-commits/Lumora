@@ -43,7 +43,7 @@ fun EditorScreen(vm: EditorViewModel) {
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("Lumora", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Vannamayam", fontWeight = FontWeight.SemiBold) },
                 actions = {
                     IconButton(onClick = pickPhoto) { Icon(Icons.Default.PhotoLibrary, "Open photo") }
                     IconButton(onClick = vm::undo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo") }
