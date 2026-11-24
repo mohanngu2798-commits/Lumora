@@ -46,7 +46,7 @@ import kotlinx.coroutines.delay
 
 /** Start screen: a slowly drifting wall of colourful prints, one bold line, and clear ways in. */
 @Composable
-fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> Unit, studioFirst: Boolean = false) {
+fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> Unit, studioFirst: Boolean = false, premiumUntil: Long = 0L) {
     val editPicker = rememberLauncherForActivityResult(PickVisualMedia()) { it?.let(onEdit) }
     val enhancePicker = rememberLauncherForActivityResult(PickVisualMedia()) { it?.let(onEnhance) }
     val image = PickVisualMediaRequest(PickVisualMedia.ImageOnly)
@@ -69,6 +69,19 @@ fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> 
                 Spacer(Modifier.width(4.dp))
                 Text("Vannamayam", maxLines = 1, softWrap = false,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp))
+            }
+            if (premiumUntil > System.currentTimeMillis()) {
+                val date = java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault()).format(java.util.Date(premiumUntil))
+                Row(
+                    Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp)
+                        .clip(RoundedCornerShape(50)).background(Brush.linearGradient(listOf(Magenta, Saffron)))
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.WorkspacePremium, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Free till $date", color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                }
             }
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 24.dp)) {
                 Text("Photo editor and feed studio", style = MaterialTheme.typography.bodyMedium,

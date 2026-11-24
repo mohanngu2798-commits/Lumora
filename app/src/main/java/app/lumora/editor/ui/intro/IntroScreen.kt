@@ -117,9 +117,13 @@ fun IntroScreen(onDone: (IntroAnswers) -> Unit) {
                         }
                     }
                 }
-                else -> Page("Almost there", "What do you\npost about?", "Pick a few and we'll tune your home screen.", "Start creating",
-                    posts.isNotEmpty(), { onDone(IntroAnswers(use, interests, posts)) }) {
+                3 -> Page("Almost there", "What do you\npost about?", "Pick a few and we'll tune your home screen.", "Continue",
+                    posts.isNotEmpty(), { page = 4 }) {
                     PostGrid(posts) { label -> posts = if (label in posts) posts - label else posts + label }
+                }
+                else -> Page("Launch offer", "Vannamayam Premium,\nfree for 3 months", null, "Claim free access",
+                    true, { onDone(IntroAnswers(use, interests, posts)) }) {
+                    LaunchOffer()
                 }
             }
         }
@@ -230,5 +234,60 @@ private fun PostGrid(selected: Set<String>, onToggle: (String) -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LaunchOffer() {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        listOf(
+            "Every tool, look and Feed Studio feature",
+            "AI Enhance and AI upscale",
+            "Full-resolution saves, no watermark",
+        ).forEach { line ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Check, null, tint = OnInk, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(line, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        PlanRow("Monthly", "₹199 per month", badge = null)
+        PlanRow("Yearly", "₹83 per month (₹999 per year)", badge = "SAVE 58%")
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Magenta, Saffron)))
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.CardGiftcard, null, tint = Color.White)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Launch offer: ₹0 for 3 months", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("No payment details. Nothing is charged.", color = Color.White.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlanRow(title: String, price: String, badge: String?) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(PanelHigh).padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, fontWeight = FontWeight.SemiBold)
+                if (badge != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(badge, style = MaterialTheme.typography.labelSmall, color = Ink,
+                        modifier = Modifier.clip(RoundedCornerShape(50)).background(OnInk).padding(horizontal = 8.dp, vertical = 2.dp))
+                }
+            }
+            Text(price, style = MaterialTheme.typography.bodyMedium.copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text("₹0", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
