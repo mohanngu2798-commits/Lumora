@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder mark: an aperture-like ring with a light spark. Replace with final branding. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFB547" android:strokeWidth="5"
+        android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
+    <path android:fillColor="#FF7AD7F0"
+        android:pathData="M54,42l3.5,8.5l8.5,3.5l-8.5,3.5l-3.5,8.5l-3.5,-8.5l-8.5,-3.5l8.5,-3.5z" />
+</vector>
