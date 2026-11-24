@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Vannamayam mark: five coloured petals, like a kolam flower, around a bright centre. -->
+<!-- Vannamayam mark: a "V" of two rounded strokes, warm and cool, meeting at a point, with a golden spark. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <group android:pivotX="54" android:pivotY="54" android:rotation="0">
-        <path android:fillColor="#FFFF3D7F" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
+    <group android:translateX="9.72" android:translateY="9.72" android:scaleX="0.82" android:scaleY="0.82">
+        <path android:pathData="M32,34 L54,78" android:strokeWidth="15" android:strokeLineCap="round" android:fillColor="#00000000">
+            <aapt:attr name="android:strokeColor">
+                <gradient android:type="linear" android:startX="32" android:startY="34" android:endX="54" android:endY="78"
+                    android:startColor="#FFE8336F" android:endColor="#FFFF7A2F" />
+            </aapt:attr>
+        </path>
+        <path android:pathData="M76,34 L54,78" android:strokeWidth="15" android:strokeLineCap="round" android:fillColor="#00000000">
+            <aapt:attr name="android:strokeColor">
+                <gradient android:type="linear" android:startX="76" android:startY="34" android:endX="54" android:endY="78"
+                    android:startColor="#FF6C4DFF" android:endColor="#FF14A99B" />
+            </aapt:attr>
+        </path>
+        <path android:fillColor="#FFFFB800"
+            android:pathData="M54,22 l2.6,6.4 l6.4,2.6 l-6.4,2.6 l-2.6,6.4 l-2.6,-6.4 l-6.4,-2.6 l6.4,-2.6z" />
     </group>
-    <group android:pivotX="54" android:pivotY="54" android:rotation="72">
-        <path android:fillColor="#FFFF8A3D" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
-    </group>
-    <group android:pivotX="54" android:pivotY="54" android:rotation="144">
-        <path android:fillColor="#FFFFD23F" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
-    </group>
-    <group android:pivotX="54" android:pivotY="54" android:rotation="216">
-        <path android:fillColor="#FF2EC4B6" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
-    </group>
-    <group android:pivotX="54" android:pivotY="54" android:rotation="288">
-        <path android:fillColor="#FF7B5CFF" android:pathData="M54,54 C46,46 46,32 54,26 C62,32 62,46 54,54z" />
-    </group>
-    <path android:fillColor="#FFFFFFFF" android:pathData="M54,49a5,5 0,1 1,0 10a5,5 0,1 1,0 -10z" />
 </vector>

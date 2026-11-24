@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
@@ -52,7 +54,7 @@ private enum class EditorPanel(val label: String, val icon: ImageVector) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorScreen(vm: EditorViewModel) {
+fun EditorScreen(vm: EditorViewModel, onHome: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val picker = rememberLauncherForActivityResult(PickVisualMedia()) { uri -> uri?.let(vm::open) }
     val pickPhoto = { picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }
@@ -70,14 +72,10 @@ fun EditorScreen(vm: EditorViewModel) {
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        "Vannamayam",
-                        style = TextStyle(brush = BrandGradient, fontSize = 22.sp, fontWeight = FontWeight.Bold),
-                    )
-                },
+                navigationIcon = { IconButton(onClick = onHome) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Home") } },
+                title = {},
                 actions = {
-                    IconButton(onClick = pickPhoto) { Icon(Icons.Default.PhotoLibrary, "Open photo") }
+                    AiPill(active = state.aiEnhanced, enabled = state.preview != null && !state.busy, onClick = vm::toggleAiEnhance)
                     IconButton(onClick = vm::undo, enabled = state.canUndo) { Icon(Icons.AutoMirrored.Filled.Undo, "Undo") }
                     IconButton(onClick = vm::redo, enabled = state.canRedo) { Icon(Icons.AutoMirrored.Filled.Redo, "Redo") }
                     GradientButton("Save", enabled = state.preview != null && !state.busy, onClick = { showSave = true })
@@ -88,7 +86,8 @@ fun EditorScreen(vm: EditorViewModel) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val canvasArgb = PhotoCanvas.toArgb()
+            Box(Modifier.weight(1f).fillMaxWidth().background(PhotoCanvas), contentAlignment = Alignment.Center) {
                 Crossfade(targetState = state.preview == null, animationSpec = tween(400), label = "empty") { empty ->
                     if (empty) {
                         EmptyState(onOpen = pickPhoto)
@@ -96,7 +95,10 @@ fun EditorScreen(vm: EditorViewModel) {
                         Box(Modifier.fillMaxSize()) {
                             AndroidView(
                                 factory = { PreviewView(it) },
-                                update = { it.show(state.preview, if (comparing) state.params.originalLook() else state.params) },
+                                update = {
+                                    it.setCanvasColor(canvasArgb)
+                                    it.show(state.preview, if (comparing) state.params.originalLook() else state.params)
+                                },
                                 modifier = Modifier.fillMaxSize(),
                             )
                             // Press and hold to see the photo without edits.
@@ -192,7 +194,7 @@ private fun PanelTabs(current: EditorPanel, onSelect: (EditorPanel) -> Unit) {
             EditorPanel.entries.forEachIndexed { i, p ->
                 val selected = p == current
                 val tint by animateColorAsState(
-                    if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant, tween(250), label = "tab")
+                    if (selected) OnInk else MaterialTheme.colorScheme.onSurfaceVariant, tween(250), label = "tab")
                 val lift by animateFloatAsState(if (selected) 1.15f else 1f, Springs.squish(), label = "lift")
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -281,36 +283,25 @@ private fun SaveOption(icon: ImageVector, title: String, subtitle: String, accen
 
 @Composable
 private fun EmptyState(onOpen: () -> Unit) {
-    val t = rememberInfiniteTransition(label = "blobs")
-    val drift by t.animateFloat(0f, 1f, infiniteRepeatable(tween(6000, easing = LinearEasing), RepeatMode.Reverse), label = "drift")
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        // Soft colour blobs drifting behind the welcome text.
-        Box(Modifier.fillMaxSize().blur(70.dp)) {
-            Spectrum.forEachIndexed { i, c ->
-                val x = 0.15f + 0.7f * ((i * 0.37f + drift * (if (i % 2 == 0) 0.3f else -0.3f)) % 1f + 1f) % 1f
-                val y = 0.2f + 0.6f * ((i * 0.53f + drift * 0.2f) % 1f)
-                Box(
-                    Modifier.fillMaxSize().wrapContentSize(Alignment.TopStart)
-                        .offset { androidx.compose.ui.unit.IntOffset((x * 900).toInt() - 150, (y * 1400).toInt() - 150) }
-                        .size(160.dp).clip(CircleShape).background(c.copy(alpha = 0.55f))
-                )
-            }
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-            Text("வண்ணமயம்", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Make it colourful.",
-                style = MaterialTheme.typography.headlineMedium.copy(brush = FullGradient, fontWeight = FontWeight.Bold),
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Every tool free. Edits and AI run on your phone. Nothing is uploaded.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(28.dp))
-            GradientButton("Open a photo", onClick = onOpen, modifier = Modifier.border(0.dp, Color.Transparent, RoundedCornerShape(50)))
-        }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+        Text("No photo open", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(16.dp))
+        GradientButton("Choose a photo", onClick = onOpen)
+    }
+}
+
+/** The AI Enhance toggle: outlined when off, filled with the brand gradient when on. */
+@Composable
+private fun AiPill(active: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.padding(end = 4.dp).squishClickable(enabled = enabled, onClick = onClick)
+            .clip(RoundedCornerShape(50))
+            .background(if (active) BrandGradient else Brush.linearGradient(listOf(PanelHigh, PanelHigh)))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.AutoAwesome, null, tint = if (active) Color.White else Magenta, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(5.dp))
+        Text("AI", fontWeight = FontWeight.SemiBold, color = if (active) Color.White else OnInk)
     }
 }

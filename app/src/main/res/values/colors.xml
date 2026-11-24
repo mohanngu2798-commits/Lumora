@@ -1,4 +1,4 @@
 <resources>
-    <color name="lumora_bg">#FF0E0B16</color>
-    <color name="ic_launcher_background">#FF17131F</color>
+    <color name="lumora_bg">#FFFFFFFF</color>
+    <color name="ic_launcher_background">#FFFFFFFF</color>
 </resources>

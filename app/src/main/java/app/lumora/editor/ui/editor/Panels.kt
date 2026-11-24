@@ -53,12 +53,12 @@ internal fun LooksPanel(params: EditParams, vm: EditorViewModel) {
                 Box(
                     Modifier.size(64.dp).clip(RoundedCornerShape(16.dp))
                         .background(if (name == "Original") Brush.linearGradient(listOf(PanelHigh, PanelHigh)) else Brush.linearGradient(listOf(a, b)))
-                        .border(2.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(16.dp)),
+                        .border(2.dp, if (selected) OnInk else Color.Transparent, RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center,
                 ) { Text(name.take(1), color = Color.White, fontWeight = FontWeight.Bold) }
                 Spacer(Modifier.height(6.dp))
                 Text(name, style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = if (selected) OnInk else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -112,7 +112,7 @@ internal fun AdjustPanel(params: EditParams, vm: EditorViewModel) {
 internal fun CurvesPanel(params: EditParams, vm: EditorViewModel) {
     var channel by rememberSaveable { mutableStateOf(CurveChannel.Master) }
     val color = when (channel) {
-        CurveChannel.Master -> Color.White
+        CurveChannel.Master -> OnInk
         CurveChannel.Red -> Color(0xFFFF6B6B)
         CurveChannel.Green -> Color(0xFF6BE38A)
         CurveChannel.Blue -> Color(0xFF6BA8FF)

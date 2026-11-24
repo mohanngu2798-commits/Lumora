@@ -3,7 +3,7 @@ package app.lumora.editor.gl
 import android.graphics.Bitmap
 import kotlin.math.max
 
-internal object Blur {
+object Blur {
     /**
      * Shrinks [src] so its long edge is about [edge] pixels by repeated halving with filtering.
      * Each halving averages neighbours, so the result is a smooth, wide blur once upsampled.

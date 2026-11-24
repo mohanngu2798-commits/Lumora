@@ -152,7 +152,7 @@ internal fun ValueSlider(
             onValueChange = { ticks.onValue(it) { t -> haptics.performHapticFeedback(t) }; onChange(it) },
             onValueChangeFinished = { ticks.reset(); onDone() },
             valueRange = range,
-            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = accent, inactiveTrackColor = PanelHigh),
+            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent, inactiveTrackColor = PanelHigh),
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }
@@ -171,6 +171,6 @@ internal fun ColorChip(label: String, accent: Color, selected: Boolean, swatch: 
             Box(Modifier.size(14.dp).clip(CircleShape).background(swatch))
             Spacer(Modifier.width(6.dp))
         }
-        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) OnInk else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

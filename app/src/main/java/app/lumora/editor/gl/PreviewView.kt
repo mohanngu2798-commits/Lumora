@@ -20,6 +20,11 @@ class PreviewView(context: Context) : GLSurfaceView(context) {
         renderMode = RENDERMODE_WHEN_DIRTY
     }
 
+    /** Background behind the photo, as ARGB. */
+    fun setCanvasColor(argb: Int) {
+        if (renderer.canvasColor != argb) { renderer.canvasColor = argb; requestRender() }
+    }
+
     fun show(bitmap: Bitmap?, params: EditParams) {
         if (bitmap !== shownBitmap) {
             shownBitmap = bitmap
@@ -31,6 +36,7 @@ class PreviewView(context: Context) : GLSurfaceView(context) {
 
     private class PreviewRenderer : Renderer {
         @Volatile var params = EditParams()
+        @Volatile var canvasColor = 0xFFF1F0F4.toInt()
         var pendingBitmap: Bitmap? = null
         private var image: ImageRenderer? = null
         private var viewW = 0
@@ -49,7 +55,8 @@ class PreviewView(context: Context) : GLSurfaceView(context) {
             pendingBitmap?.let { if (!it.isRecycled) r.setImage(it) }
             pendingBitmap = null
 
-            GLES30.glClearColor(0.055f, 0.043f, 0.086f, 1f)
+            val cc = canvasColor
+            GLES30.glClearColor(((cc shr 16) and 0xFF) / 255f, ((cc shr 8) and 0xFF) / 255f, (cc and 0xFF) / 255f, 1f)
             GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
             if (!r.hasImage) return
 

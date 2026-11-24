@@ -30,6 +30,8 @@ data class EditorState(
     /** 0..1 while a long task (AI upscale) runs, else null. */
     val progress: Float? = null,
     val busyLabel: String? = null,
+    /** True when the AI Enhance pass is applied to the photo being edited. */
+    val aiEnhanced: Boolean = false,
     val message: String? = null,
 )
 
@@ -40,9 +42,54 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
+    private var originalPreview: Bitmap? = null
+
     // Undo history holds committed edits; slider drags update `params` live and commit on release.
     private val history = ArrayList<EditParams>()
     private var cursor = -1
+
+    private var pendingEnhance = false
+
+    /** Opens a photo and runs AI Enhance straight away (the home screen's AI Enhance card). */
+    fun openAndEnhance(uri: Uri) { pendingEnhance = true; open(uri) }
+
+    /**
+     * AI Enhance: the photo is shrunk to half size and rebuilt at 4x by the on-device ESRGAN
+     * model, then fitted back to the original size. The model redraws edges and textures, so
+     * soft or noisy photos come back crisper. Tapping again switches it off.
+     */
+    fun toggleAiEnhance() {
+        val s = _state.value
+        val current = s.preview ?: return
+        if (s.busy) return
+        if (s.aiEnhanced) {
+            val orig = originalPreview ?: return
+            originalPreview = null
+            _state.update { it.copy(preview = orig, aiEnhanced = false, message = "AI Enhance off") }
+            return
+        }
+        _state.update { it.copy(busy = true, busyLabel = "AI enhancing", progress = 0f) }
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.Default) {
+                    val half = maxOf(1, minOf(current.width / 2, AI_INPUT_EDGE * current.width / maxOf(current.width, current.height)))
+                    val f = half.toFloat() / current.width
+                    val small = Bitmap.createScaledBitmap(current, half, maxOf(1, (current.height * f).toInt()), true)
+                    val big = Upscaler(getApplication()).use { up ->
+                        up.upscale4x(small) { p -> _state.update { it.copy(progress = p) } }
+                    }
+                    small.recycle()
+                    Bitmap.createScaledBitmap(big, current.width, current.height, true).also { if (it !== big) big.recycle() }
+                }
+            }.onSuccess { enhanced ->
+                originalPreview = current
+                _state.update { it.copy(preview = enhanced, aiEnhanced = true, busy = false, progress = null, busyLabel = null,
+                    message = "AI enhanced. Tap AI again to compare or switch off.") }
+            }.onFailure { e ->
+                _state.update { it.copy(busy = false, progress = null, busyLabel = null, message = "AI Enhance failed: ${e.message}") }
+            }
+        }
+    }
 
     fun open(uri: Uri) {
         _state.update { it.copy(busy = true) }
@@ -50,7 +97,9 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { withContext(Dispatchers.IO) { store.decode(uri, PREVIEW_EDGE) } }
                 .onSuccess { bmp ->
                     history.clear(); history += EditParams(); cursor = 0
+                    originalPreview = null
                     _state.value = EditorState(sourceUri = uri, preview = bmp)
+                    if (pendingEnhance) { pendingEnhance = false; toggleAiEnhance() }
                 }
                 .onFailure { e -> _state.update { it.copy(busy = false, message = "Couldn't open photo: ${e.message}") } }
         }
@@ -103,8 +152,12 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 var out = withContext(glThread) {
                     val maxEdge = minOf(Exporter.maxTextureSize(), EXPORT_EDGE_CAP)
-                    val full = withContext(Dispatchers.IO) { store.decode(uri, maxEdge) }
-                    Exporter.render(full, s.params).also { full.recycle() }
+                    if (s.aiEnhanced && s.preview != null) {
+                        Exporter.render(s.preview, s.params)
+                    } else {
+                        val full = withContext(Dispatchers.IO) { store.decode(uri, maxEdge) }
+                        Exporter.render(full, s.params).also { full.recycle() }
+                    }
                 }
                 if (scale > 1) out = withContext(Dispatchers.Default) { aiUpscale(out, scale) }
                 withContext(Dispatchers.IO) { store.saveJpeg(out) }
@@ -123,7 +176,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val input = if (long > AI_INPUT_EDGE) {
             val f = AI_INPUT_EDGE.toFloat() / long
             Bitmap.createScaledBitmap(edited, (edited.width * f).toInt().coerceAtLeast(1), (edited.height * f).toInt().coerceAtLeast(1), true)
-                .also { edited.recycle() }
+                .also { if (it !== edited) edited.recycle() }
         } else edited
         val big = Upscaler(getApplication()).use { up ->
             up.upscale4x(input) { p -> _state.update { it.copy(progress = p) } }

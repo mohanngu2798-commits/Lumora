@@ -26,6 +26,7 @@ fun CurveEditor(
     val change by rememberUpdatedState(onChange)
     val commit by rememberUpdatedState(onCommit)
     var dragIndex by remember { mutableIntStateOf(-1) }
+    val gridBase = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
 
     fun toCurve(o: Offset, w: Float, h: Float) = (o.x / w).coerceIn(0f, 1f) to (1f - o.y / h).coerceIn(0f, 1f)
     fun nearest(o: Offset, w: Float, h: Float, radiusPx: Float): Int {
@@ -87,7 +88,7 @@ fun CurveEditor(
             }
     ) {
         val w = size.width; val h = size.height
-        val grid = Color.White.copy(alpha = 0.12f)
+        val grid = gridBase.copy(alpha = 0.12f)
         for (k in 1..3) {
             drawLine(grid, Offset(w * k / 4, 0f), Offset(w * k / 4, h))
             drawLine(grid, Offset(0f, h * k / 4), Offset(w, h * k / 4))

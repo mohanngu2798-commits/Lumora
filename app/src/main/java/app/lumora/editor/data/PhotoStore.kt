@@ -28,10 +28,10 @@ class PhotoStore(private val context: Context) {
     }
 
     /** Saves a JPEG to Pictures/Vannamayam and returns its content Uri. */
-    fun saveJpeg(bitmap: Bitmap, quality: Int = 95): Uri {
+    fun saveJpeg(bitmap: Bitmap, quality: Int = 95, name: String = "Vannamayam_${System.currentTimeMillis()}"): Uri {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "Vannamayam_${System.currentTimeMillis()}.jpg")
+            put(MediaStore.Images.Media.DISPLAY_NAME, "$name.jpg")
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
             put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Vannamayam")
             put(MediaStore.Images.Media.IS_PENDING, 1)

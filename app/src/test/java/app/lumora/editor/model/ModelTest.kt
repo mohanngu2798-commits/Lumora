@@ -43,3 +43,33 @@ class AutoEnhanceTest {
         assertEquals(base.crop, AutoEnhance.analyze(solid(50, 60, 70), base).crop)
     }
 }
+
+class CarouselTest {
+    private val ids = listOf(1L, 2L, 3L, 4L)
+
+    @Test fun panoramaCoversWholeStrip() {
+        val c = CarouselLayouts.panorama(Carousel(slides = 3), listOf(3f), ids)
+        val l = c.layers.single()
+        assertTrue(l.width >= c.width - 1e-4f && l.height >= 1f - 1e-4f)
+        assertEquals(c.width / 2, l.cx, 1e-4f)
+    }
+
+    @Test fun onePerSlideCentresEachPhotoInItsSlide() {
+        val c = CarouselLayouts.onePerSlide(Carousel(slides = 2), listOf(1f, 1.5f, 0.7f), ids)
+        assertEquals(3, c.slides)
+        c.layers.forEachIndexed { i, l ->
+            assertEquals(c.slideWidth * (i + 0.5f), l.cx, 1e-4f)
+            assertTrue(l.width <= c.slideWidth && l.height <= 1f)
+        }
+    }
+
+    @Test fun seamsSitOnSlideBoundaries() {
+        val c = CarouselLayouts.seams(Carousel(slides = 2), listOf(1f, 1f, 1f), ids)
+        assertEquals(4, c.slides)
+        c.layers.forEachIndexed { i, l -> assertEquals(c.slideWidth * (i + 1), l.cx, 1e-4f) }
+    }
+
+    @Test fun pixelSizeMatchesInstagram() {
+        assertEquals(3240 to 1350, Carousel(format = SlideFormat.Portrait, slides = 3).pixelSize())
+    }
+}
