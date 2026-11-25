@@ -8,19 +8,25 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 340
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
       - run: pip install --index-url https://download.pytorch.org/whl/cpu torch && pip install diffusers transformers accelerate pillow
-      - run: PYTHONHASHSEED=0 python tools/samples/generate.py app/src/main/res/drawable-nodpi tools/samples/prompts.txt
+      - name: Free disk space for the model
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - timeout-minutes: 290
+        continue-on-error: true   # keep the pictures made so far if time runs out
+        run: PYTHONHASHSEED=0 python tools/samples/generate.py app/src/main/res/drawable-nodpi tools/samples/prompts.txt
       - name: Commit pictures
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/src/main/res/drawable-nodpi
+          git add -A app/src/main/res/drawable-nodpi tools/samples
           git commit -m "Add AI-generated example pictures" || exit 0
-          git push
+          git pull --rebase origin "${GITHUB_REF_NAME}" && git push
       - uses: actions/upload-artifact@v4
+        if: always()
         with: { name: example-pictures, path: app/src/main/res/drawable-nodpi }
