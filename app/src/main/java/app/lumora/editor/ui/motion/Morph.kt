@@ -13,7 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 /** Name of the social media studio section, kept in one place so it is easy to rename. */
-const val STUDIO_NAME = "Feed Studio"
+const val STUDIO_NAME = "Instagram Studio"
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 val LocalSharedScope = compositionLocalOf<SharedTransitionScope?> { null }
