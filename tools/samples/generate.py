@@ -8,10 +8,11 @@ out = Path(sys.argv[1]); out.mkdir(parents=True, exist_ok=True)
 pipe = DiffusionPipeline.from_pretrained("SimianLuo/LCM_Dreamshaper_v7", torch_dtype=torch.float32, safety_checker=None)
 pipe.set_progress_bar_config(disable=True)
 torch.set_num_threads(4)
-neg = "text, watermark, logo, deformed, extra fingers"
+
 for line in Path(sys.argv[2]).read_text().splitlines():
     if not line.strip() or line.startswith("#"): continue
     name, prompt = [x.strip() for x in line.split("|", 1)]
+    if (out / f"sample_{name}.webp").exists(): continue  # delete a picture to make it again
     g = torch.Generator().manual_seed(abs(hash(name)) % 10000)
     img = pipe(prompt + ", highly detailed, professional photography", num_inference_steps=6, guidance_scale=8.0,
                width=512, height=640, generator=g).images[0]
