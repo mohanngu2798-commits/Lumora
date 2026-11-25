@@ -1,0 +1,26 @@
+name: Example pictures
+on:
+  workflow_dispatch:
+  push:
+    paths: [ "tools/samples/**" ]
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install --index-url https://download.pytorch.org/whl/cpu torch && pip install diffusers transformers accelerate pillow
+      - run: PYTHONHASHSEED=0 python tools/samples/generate.py app/src/main/res/drawable-nodpi tools/samples/prompts.txt
+      - name: Commit pictures
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/res/drawable-nodpi
+          git commit -m "Add AI-generated example pictures" || exit 0
+          git push
+      - uses: actions/upload-artifact@v4
+        with: { name: example-pictures, path: app/src/main/res/drawable-nodpi }

@@ -1,0 +1,24 @@
+# name | prompt  (all images are AI generated; no real people)
+travel | travel photo, backpacker silhouette looking at misty green tea hills of Munnar at sunrise, golden light, cinematic, 35mm photo
+food | top-down food photo of South Indian thali on banana leaf, dosa, idli, sambar, chutneys, vibrant colours, natural light
+photo_dump | flat lay of polaroid prints, film camera, coffee cup and dried flowers on a linen table, cosy aesthetic, soft light
+wedding | Indian wedding details, bride's hands with mehendi holding jasmine garland, gold bangles, red silk saree, shallow depth of field
+fashion | fashion editorial photo, young woman in pastel kurta walking on a colourful city street, golden hour, film look
+daily_life | morning street scene in an Indian town, chai stall with steam, bicycles, warm sunlight, candid documentary photo
+landscape | dramatic landscape photo, Himalayan snow peaks above a turquoise lake, clouds, crisp air, high detail
+business | minimal product photo of a handmade ceramic coffee mug on a wooden desk with laptop and plant, clean bright studio light
+festivals | Diwali night, rows of glowing clay diyas and colourful rangoli on the floor, warm bokeh lights, festive
+wall_1 | sunset at a tropical beach with palm trees, pink and orange sky, calm sea, 35mm film photo
+wall_2 | ancient South Indian temple gopuram with colourful sculptures against blue sky, wide angle photo
+wall_3 | vibrant flower market, heaps of marigold and jasmine garlands, bright colours, close up
+wall_4 | city at night with neon signs reflected on wet street, cinematic, teal and magenta
+wall_5 | latte art coffee cup on a marble cafe table by a window, soft morning light, aesthetic
+wall_6 | colourful rangoli kolam pattern on the ground with flower petals, top-down photo
+wall_7 | green paddy fields with coconut trees in Kerala backwaters, houseboat, overcast soft light
+wall_8 | portrait of a smiling young woman with jasmine flowers in her hair, golden hour, shallow depth of field, 85mm
+editor | portrait of a young man in a denim jacket on a rooftop at golden hour, city skyline behind, 85mm photo
+ai_face | close-up portrait of an elderly Indian woman with kind eyes and a red bindi, natural window light, detailed skin
+collage_1 | hands holding a cup of masala chai, steam, warm tones, close up
+collage_2 | yellow vintage taxi on a busy old city street, film photo
+collage_3 | girl in a yellow dress laughing in a sunflower field, back view, summer
+collage_4 | stack of colourful sweets ladoo and jalebi on a brass plate, festive food photo
