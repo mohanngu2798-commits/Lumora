@@ -176,6 +176,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     fun saveDraft() {
         val s = _state.value
         drafts.saveStudio(StudioDraft(s.carousel, s.uris, s.order, s.filters, System.currentTimeMillis()))
+        s.order.firstOrNull()?.let { s.photos[it] }?.let { drafts.saveThumb("studio", it) }
         _state.value = StudioState()
     }
 

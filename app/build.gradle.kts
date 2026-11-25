@@ -13,8 +13,8 @@ android {
         applicationId = "app.lumora.editor"
         minSdk = 29          // Android 10+: scoped storage, no storage permission needed
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.6.0"
+        versionCode = 7
+        versionName = "0.6.1"
         // Phones and most emulators; keeps the AI runtime small.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }

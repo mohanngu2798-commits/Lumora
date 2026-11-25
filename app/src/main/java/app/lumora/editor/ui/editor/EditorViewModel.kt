@@ -131,6 +131,14 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val uri = s.sourceUri ?: return
         drafts.saveEditor(EditorDraft(uri, s.params, System.currentTimeMillis()))
+        s.preview?.let { p ->
+            val thumb = runCatching {
+                val f = 360f / maxOf(p.width, p.height)
+                val small = Bitmap.createScaledBitmap(p, maxOf(1, (p.width * f).toInt()), maxOf(1, (p.height * f).toInt()), true)
+                Exporter.render(small, s.params).also { if (small !== p) small.recycle() }
+            }.getOrNull() ?: p
+            drafts.saveThumb("editor", thumb)
+        }
         close()
     }
 

@@ -183,7 +183,10 @@ class CollageViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveDraft() {
         val st = _state.value
-        if (st.photos.isNotEmpty()) drafts.saveCollage(CollageDraft(st.spec, st.uris, System.currentTimeMillis()))
+        if (st.photos.isNotEmpty()) {
+            drafts.saveCollage(CollageDraft(st.spec, st.uris, System.currentTimeMillis()))
+            runCatching { CollageRenderer.export(st.spec, st.photos, 400) }.getOrNull()?.let { drafts.saveThumb("collage", it); it.recycle() }
+        }
         close()
     }
 

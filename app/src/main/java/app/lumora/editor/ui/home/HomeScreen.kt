@@ -134,20 +134,16 @@ fun HomeScreen(
                 )
             }
             val drafts = listOfNotNull(
-                editorDraft?.let { Triple("Photo edit", it.savedAt) { onResumeEditor(it) } },
-                studioDraft?.let { Triple(STUDIO_NAME, it.savedAt) { onResumeStudio(it) } },
-                collageDraft?.let { Triple("Collage", it.savedAt) { onResumeCollage(it) } },
-            ).sortedByDescending { it.second }
+                editorDraft?.let { DraftItem("Photo edit", "editor", it.savedAt) { onResumeEditor(it) } },
+                studioDraft?.let { DraftItem(STUDIO_NAME, "studio", it.savedAt) { onResumeStudio(it) } },
+                collageDraft?.let { DraftItem("Collage", "collage", it.savedAt) { onResumeCollage(it) } },
+            ).sortedByDescending { it.savedAt }
             if (drafts.isNotEmpty()) Appear(0) {
                 Column {
-                    Text("Continue where you left off", style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        drafts.forEach { (label, at, go) ->
-                            val ago = android.text.format.DateUtils.getRelativeTimeSpanString(at).toString()
-                            FeaturePill(Icons.Default.History, "$label · $ago", go)
-                        }
+                    Text("Your drafts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        drafts.forEach { d -> DraftCard(d) }
                     }
                 }
             }
@@ -191,6 +187,33 @@ fun HomeScreen(
 }
 
 private val LocalHomeScroll = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.foundation.ScrollState?> { null }
+
+private class DraftItem(val label: String, val kind: String, val savedAt: Long, val open: () -> Unit)
+
+/** A saved draft: its preview picture, what it is and when it was saved. Tap to continue. */
+@Composable
+private fun DraftCard(d: DraftItem) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val thumb = remember(d.kind, d.savedAt) { app.lumora.editor.data.Drafts(context).thumb(d.kind)?.asImageBitmap() }
+    Column(
+        Modifier.width(132.dp).squishClickable(pressedScale = 0.94f, onClick = d.open)
+            .clip(RoundedCornerShape(18.dp)).background(PanelHigh),
+    ) {
+        Box(Modifier.fillMaxWidth().height(150.dp).background(PhotoCanvas), contentAlignment = Alignment.Center) {
+            if (thumb != null) androidx.compose.foundation.Image(thumb, null, Modifier.fillMaxSize(),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            else Icon(Icons.Default.History, null, tint = OnInk)
+            Text("Draft", color = Color.White, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 8.dp, vertical = 3.dp))
+        }
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(d.label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            Text(android.text.format.DateUtils.getRelativeTimeSpanString(d.savedAt).toString(),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
+}
 
 /** A big entry card that morphs into its screen. */
 @Composable

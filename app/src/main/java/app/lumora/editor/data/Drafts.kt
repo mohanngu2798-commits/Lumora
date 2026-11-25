@@ -34,7 +34,7 @@ class Drafts(private val context: Context) {
     fun saveEditor(d: EditorDraft) {
         keepAccess(d.uri)
         sp.edit().putString("editor", JSONObject().put("uri", d.uri.toString()).put("params", params(d.params))
-            .put("at", d.savedAt).toString()).apply()
+            .put("at", d.savedAt).toString()).commit()
     }
 
     fun editor(): EditorDraft? = runCatching {
@@ -42,7 +42,7 @@ class Drafts(private val context: Context) {
         EditorDraft(Uri.parse(o.getString("uri")), params(o.getJSONObject("params")), o.getLong("at"))
     }.getOrNull()
 
-    fun clearEditor() = sp.edit().remove("editor").apply()
+    fun clearEditor() { sp.edit().remove("editor").commit(); thumbFile("editor").delete() }
 
     fun saveStudio(d: StudioDraft) {
         d.uris.values.forEach(::keepAccess)
@@ -59,7 +59,7 @@ class Drafts(private val context: Context) {
             .put("order", JSONArray(d.order))
             .put("filters", JSONObject(d.filters.mapKeys { it.key.toString() }))
             .put("at", d.savedAt)
-        sp.edit().putString("studio", o.toString()).apply()
+        sp.edit().putString("studio", o.toString()).commit()
     }
 
     fun studio(): StudioDraft? = runCatching {
@@ -81,7 +81,7 @@ class Drafts(private val context: Context) {
         StudioDraft(carousel, uris, ord, filters, o.getLong("at"))
     }.getOrNull()
 
-    fun clearStudio() = sp.edit().remove("studio").apply()
+    fun clearStudio() { sp.edit().remove("studio").commit(); thumbFile("studio").delete() }
 
     fun saveCollage(d: CollageDraft) {
         d.uris.forEach(::keepAccess)
@@ -92,7 +92,7 @@ class Drafts(private val context: Context) {
             .put("cells", JSONArray(s.cells.map { JSONObject().put("p", it.photo).put("x", it.panX.toDouble()).put("y", it.panY.toDouble()).put("z", it.zoom.toDouble()) }))
             .put("items", JSONArray(s.items.map { JSONObject().put("p", it.photo).put("x", it.cx.toDouble()).put("y", it.cy.toDouble()).put("w", it.width.toDouble()).put("r", it.rotation.toDouble()) }))
             .put("uris", JSONArray(d.uris.map { it.toString() })).put("at", d.savedAt)
-        sp.edit().putString("collage", o.toString()).apply()
+        sp.edit().putString("collage", o.toString()).commit()
     }
 
     fun collage(): CollageDraft? = runCatching {
@@ -106,7 +106,22 @@ class Drafts(private val context: Context) {
         CollageDraft(spec, uris, o.getLong("at"))
     }.getOrNull()
 
-    fun clearCollage() = sp.edit().remove("collage").apply()
+    fun clearCollage() { sp.edit().remove("collage").commit(); thumbFile("collage").delete() }
+
+    /** A small preview picture of a draft, shown on the home screen. [kind] is editor, studio or collage. */
+    fun saveThumb(kind: String, b: android.graphics.Bitmap) {
+        runCatching {
+            val f = 360f / maxOf(b.width, b.height)
+            val small = android.graphics.Bitmap.createScaledBitmap(b, maxOf(1, (b.width * f).toInt()), maxOf(1, (b.height * f).toInt()), true)
+            thumbFile(kind).also { it.parentFile?.mkdirs() }.outputStream().use { small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, it) }
+            if (small !== b) small.recycle()
+        }
+    }
+
+    fun thumb(kind: String): android.graphics.Bitmap? =
+        thumbFile(kind).takeIf { it.exists() }?.let { android.graphics.BitmapFactory.decodeFile(it.path) }
+
+    private fun thumbFile(kind: String) = java.io.File(context.filesDir, "drafts/$kind.jpg")
 
     private fun background(b: Background): JSONObject = when (b) {
         is Background.Solid -> JSONObject().put("t", "solid").put("c", b.argb)
