@@ -101,7 +101,7 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
                         AiMode.Upscale2, AiMode.Upscale4 -> {
                             val scale = if (mode == AiMode.Upscale2) 2 else 4
                             val input = fit(src, UPSCALE_INPUT_EDGE)
-                            val big = Upscaler(app).use { it.upscale4x(input, report, stop) }
+                            val big = Upscaler(app).use { it.upscale4x(input, stop, report) }
                             if (input !== src) input.recycle()
                             val targetW = src.width * scale; val targetH = src.height * scale
                             if (big.width <= targetW) big
@@ -168,7 +168,7 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
             val half = maxOf(1, minOf(src.width / 2, 1200 * src.width / maxOf(src.width, src.height)))
             val f = half.toFloat() / src.width
             val small = Bitmap.createScaledBitmap(src, half, maxOf(1, (src.height * f).toInt()), true)
-            val big = Upscaler(app).use { it.upscale4x(small, progress, cancelled) }
+            val big = Upscaler(app).use { it.upscale4x(small, cancelled, progress) }
             small.recycle()
             return Bitmap.createScaledBitmap(big, src.width, src.height, true).also { if (it !== big) big.recycle() }
         }

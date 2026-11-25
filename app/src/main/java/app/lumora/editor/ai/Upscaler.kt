@@ -26,7 +26,7 @@ class Upscaler(context: Context) : AutoCloseable {
     }
 
     /** Returns a new bitmap 4x the size of [src]. [progress] gets 0..1. */
-    fun upscale4x(src: Bitmap, progress: (Float) -> Unit = {}, cancelled: () -> Boolean = { false }): Bitmap {
+    fun upscale4x(src: Bitmap, cancelled: () -> Boolean = { false }, progress: (Float) -> Unit = {}): Bitmap {
         val w = src.width; val h = src.height
         val inPx = IntArray(w * h).also { src.getPixels(it, 0, w, 0, 0, w, h) }
         val ow = w * SCALE; val oh = h * SCALE
