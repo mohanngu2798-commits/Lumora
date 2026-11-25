@@ -101,11 +101,19 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
                         AiMode.Upscale2, AiMode.Upscale4 -> {
                             val scale = if (mode == AiMode.Upscale2) 2 else 4
                             val input = fit(src, UPSCALE_INPUT_EDGE)
-                            val big = Upscaler(app).use { it.upscale4x(input, stop, report) }
+                            val big = Upscaler(app).use { it.upscale4x(input, stop) { p -> report(p * 0.75f) } }
                             if (input !== src) input.recycle()
                             val targetW = src.width * scale; val targetH = src.height * scale
-                            if (big.width <= targetW) big
-                            else Bitmap.createScaledBitmap(big, targetW, targetH, true).also { big.recycle() }
+                            var out = if (big.width <= targetW) big
+                                else Bitmap.createScaledBitmap(big, targetW, targetH, true).also { big.recycle() }
+                            if (!out.isMutable) out = out.copy(Bitmap.Config.ARGB_8888, true).also { out.recycle() }
+                            // Like Restore: rebuild faces at the new size, then the visible tone boost.
+                            if (facesAvailable) FaceRestorer(app).use { fr ->
+                                val n = fr.restoreFaces(src, out) { p -> report(0.75f + p * 0.2f) }
+                                if (n > 0) post("Upscaled and restored $n face" + if (n > 1) "s" else "")
+                            }
+                            if (stop()) throw java.util.concurrent.CancellationException()
+                            tone(out).also { report(1f) }
                         }
                     }
                 }
@@ -156,6 +164,7 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
                 contrast = it.contrast + 0.06f, shadows = it.shadows + 0.1f, highlights = it.highlights - 0.1f,
             )
         }
+        if (maxOf(b.width, b.height) > runCatching { Exporter.maxTextureSize() }.getOrDefault(4096)) return b
         return runCatching { Exporter.render(b, p) }.getOrDefault(b).also { if (it !== b) b.recycle() }
     }
 

@@ -97,7 +97,11 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
     var lastFaces: List<Face> = emptyList()
         private set
 
+    /**
+     * [canvasBitmap] may be larger than [original] (an upscaled copy); faces are mapped up by the size ratio.
+     */
     fun restoreFaces(original: Bitmap, canvasBitmap: Bitmap, progress: (Float) -> Unit = {}): Int {
+        val scale = canvasBitmap.width.toFloat() / original.width
         val model = gfpgan ?: return 0
         val faces = detect(original).filter { (it.right - it.left) > 24f }.take(MAX_FACES)
         lastFaces = faces
@@ -109,10 +113,11 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
             val toCrop = Matrix().apply { setValues(floatArrayOf(m[0], -m[1], m[2], m[1], m[0], m[3], 0f, 0f, 1f)) }
             val crop = Bitmap.createBitmap(FACE, FACE, Bitmap.Config.ARGB_8888)
             Canvas(crop).drawBitmap(original, toCrop, paint)
-            val restored = runGfpgan(model, crop); crop.recycle()
+            val restored = runGfpgan(model, crop)
+            keepOriginalColour(crop, restored); crop.recycle()
             // Feather the square so only the face blends in, then map it back.
             Canvas(restored).drawBitmap(mask, 0f, 0f, Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN) })
-            val back = Matrix().also { toCrop.invert(it) }
+            val back = Matrix().also { toCrop.invert(it); it.postScale(scale, scale) }
             canvas.drawBitmap(restored, back, paint)
             restored.recycle()
             progress((n + 1f) / faces.size)
@@ -141,6 +146,28 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
             px[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
         }
         return Bitmap.createBitmap(px, FACE, FACE, Bitmap.Config.ARGB_8888).copy(Bitmap.Config.ARGB_8888, true)
+    }
+
+    /**
+     * The face model sometimes drifts colours on very soft inputs (brown eyes turning blue, skin tone shifting).
+     * Keep the restored detail (brightness) but take colour from a softened copy of the original face.
+     */
+    private fun keepOriginalColour(original: Bitmap, restored: Bitmap) {
+        val tiny = Bitmap.createScaledBitmap(original, 64, 64, true)
+        val soft = Bitmap.createScaledBitmap(tiny, FACE, FACE, true); tiny.recycle()
+        val o = IntArray(FACE * FACE).also { soft.getPixels(it, 0, FACE, 0, 0, FACE, FACE) }; soft.recycle()
+        val r = IntArray(FACE * FACE).also { restored.getPixels(it, 0, FACE, 0, 0, FACE, FACE) }
+        for (i in r.indices) {
+            val a = r[i]; val b = o[i]
+            val ar = (a shr 16) and 0xFF; val ag = (a shr 8) and 0xFF; val ab = a and 0xFF
+            val br = (b shr 16) and 0xFF; val bg = (b shr 8) and 0xFF; val bb = b and 0xFF
+            val ya = 0.299f * ar + 0.587f * ag + 0.114f * ab
+            val yb = 0.299f * br + 0.587f * bg + 0.114f * bb
+            // 85% original chroma, 15% restored chroma, restored brightness.
+            fun ch(x: Int, y: Int) = (ya + (y - yb) * 0.85f + (x - ya) * 0.15f).toInt().coerceIn(0, 255)
+            r[i] = (0xFF shl 24) or (ch(ar, br) shl 16) or (ch(ag, bg) shl 8) or ch(ab, bb)
+        }
+        restored.setPixels(r, 0, FACE, 0, 0, FACE, FACE)
     }
 
     /** Opaque centre fading to transparent edges, so pasted faces have no visible seam. */
