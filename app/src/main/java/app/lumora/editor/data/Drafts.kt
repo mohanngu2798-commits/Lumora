@@ -139,6 +139,8 @@ class Drafts(private val context: Context) {
         put("crop", JSONObject().put("aspect", p.crop.aspect?.toDouble() ?: JSONObject.NULL)
             .put("turns", p.crop.quarterTurns).put("flip", p.crop.flipHorizontal))
         put("look", p.lookName ?: JSONObject.NULL); put("lookStrength", p.lookStrength.toDouble())
+        put("motion", p.motionBlur.toDouble()); put("motionAngle", p.motionAngle.toDouble())
+        put("shake", p.shake.toDouble()); put("soft", p.softBlur.toDouble())
         put("toneS", p.toneShadow); put("toneH", p.toneHighlight); put("tone", p.toneAmount.toDouble())
     }
 
@@ -156,6 +158,7 @@ class Drafts(private val context: Context) {
             crop = CropSpec(if (cr.isNull("aspect")) null else cr.getDouble("aspect").toFloat(), cr.getInt("turns"), cr.getBoolean("flip")),
             lookName = if (o.isNull("look")) null else o.getString("look"),
             lookStrength = o.optDouble("lookStrength", 1.0).toFloat(),
+            motionBlur = f("motion"), motionAngle = f("motionAngle"), shake = f("shake"), softBlur = f("soft"),
             toneShadow = o.optInt("toneS", 0x808080), toneHighlight = o.optInt("toneH", 0x808080), toneAmount = f("tone"),
         )
     }

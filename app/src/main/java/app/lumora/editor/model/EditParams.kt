@@ -26,6 +26,10 @@ data class EditParams(
     val blurShape: BlurShape = BlurShape.Radial,
     val lightLeak: Float = 0f,    // 0..1
     val leakStyle: Int = 0,       // index into LeakStyles
+    val motionBlur: Float = 0f,   // 0..1 streaks along motionAngle
+    val motionAngle: Float = 0f,  // degrees, 0 = horizontal
+    val shake: Float = 0f,        // 0..1 doubled "hand shake" ghost with a slight colour split
+    val softBlur: Float = 0f,     // 0..1 dreamy whole-photo blur
     val toneShadow: Int = 0x808080,  // split-tone colour for shadows (RGB)
     val toneHighlight: Int = 0x808080, // split-tone colour for highlights (RGB)
     val toneAmount: Float = 0f,   // 0..1
@@ -51,6 +55,7 @@ data class EditParams(
             fade = fade * s, sharpen = sharpen * s, vignette = vignette * s, grain = grain * s,
             clarity = clarity * s, dehaze = dehaze * s, hdr = hdr * s, glow = glow * s, lensBlur = lensBlur * s,
             lightLeak = lightLeak * s, toneAmount = toneAmount * s,
+            motionBlur = motionBlur * s, shake = shake * s, softBlur = softBlur * s,
             curves = Curves(c(curves.master), c(curves.red), c(curves.green), c(curves.blue)),
         )
     }

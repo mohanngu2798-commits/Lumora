@@ -48,6 +48,8 @@ uniform int uBlurShape;       // 0 = radial, 1 = linear band
 uniform vec3 uLeakA, uLeakB;
 uniform vec3 uToneS, uToneH;
 uniform float uTone;
+uniform float uMotion, uShake, uSoft;
+uniform vec2 uMotionDir;     // direction in source uv units
 uniform float uOutAspect;     // output width / height
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
@@ -76,8 +78,22 @@ void main() {
         c = clamp(c + (c - blur) * uSharpen * 1.5, 0.0, 1.0);
     }
 
-    bool needM = uClarity != 0.0 || uGlow > 0.0 || uLensBlur > 0.0;
-    bool needL = uDehaze != 0.0 || uHdr > 0.0 || uLensBlur > 0.0;
+    // Motion blur: average along a line, like a moving camera.
+    if (uMotion > 0.0) {
+        vec3 acc = vec3(0.0);
+        vec2 stepUv = uMotionDir * uMotion * 0.06 / 15.0;
+        for (int i = 0; i < 16; i++) acc += texture(uImage, vUv + stepUv * (float(i) - 7.5)).rgb;
+        c = acc / 16.0;
+    }
+    // Hand shake: a second, offset exposure with a slight colour split.
+    if (uShake > 0.0) {
+        vec2 o = vec2(0.018, 0.012) * uShake;
+        vec3 g = vec3(texture(uImage, vUv + o * 1.15).r, texture(uImage, vUv + o).g, texture(uImage, vUv + o * 0.85).b);
+        c = mix(c, g, 0.42 * min(uShake * 1.5, 1.0));
+    }
+
+    bool needM = uClarity != 0.0 || uGlow > 0.0 || uLensBlur > 0.0 || uSoft > 0.0;
+    bool needL = uDehaze != 0.0 || uHdr > 0.0 || uLensBlur > 0.0 || uSoft > 0.0;
     vec3 bm = needM ? soft(uBlurM, vUv, uBlurMTexel) : c;
     vec3 bl = needL ? soft(uBlurL, vUv, uBlurLTexel) : c;
 
@@ -89,6 +105,12 @@ void main() {
         c = mix(c, bm, clamp(m * 2.0, 0.0, 1.0));
         c = mix(c, bl, clamp(m * 2.0 - 1.0, 0.0, 1.0));
         bm = mix(bm, bl, m);
+    }
+
+    // Soft blur: the whole photo melts into a dreamy haze.
+    if (uSoft > 0.0) {
+        c = mix(c, bm, clamp(uSoft * 2.0, 0.0, 1.0));
+        c = mix(c, bl, clamp(uSoft * 2.0 - 1.0, 0.0, 1.0) * 0.8);
     }
 
     // Clarity: midtone-weighted local contrast.

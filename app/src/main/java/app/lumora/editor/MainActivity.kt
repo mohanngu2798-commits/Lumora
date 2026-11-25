@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
                             onResumeCollage = { d -> collage.restoreDraft(d); screen = Screen.Collage },
                         )
                         Screen.Editor -> EditorScreen(vm, onHome = { screen = Screen.Home })
-                        Screen.Studio -> StudioScreen(studio, onBack = { screen = Screen.Home })
+                        Screen.Studio -> StudioScreen(studio, onBack = { screen = Screen.Home }, onCollage = { screen = Screen.Collage })
                         Screen.Ai -> AiStudioScreen(ai, onBack = { screen = Screen.Home })
                         Screen.Collage -> CollageScreen(collage, onBack = { screen = Screen.Home })
                     }

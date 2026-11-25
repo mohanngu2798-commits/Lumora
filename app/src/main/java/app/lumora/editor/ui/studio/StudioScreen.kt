@@ -26,6 +26,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -81,7 +82,7 @@ private enum class StudioTab(val label: String) { Layout("Layout"), Filters("Fil
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudioScreen(vm: StudioViewModel, onBack: () -> Unit) {
+fun StudioScreen(vm: StudioViewModel, onBack: () -> Unit, onCollage: () -> Unit = {}) {
     val s by vm.state.collectAsStateWithLifecycle()
     val picker = rememberLauncherForActivityResult(PickMultipleVisualMedia(10)) { vm.addPhotos(it) }
     val pick = { picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }
@@ -115,6 +116,10 @@ fun StudioScreen(vm: StudioViewModel, onBack: () -> Unit) {
             )
         },
     ) { pad ->
+        if (s.photos.isEmpty() && !s.busy) {
+            StudioHub(Modifier.padding(pad), onPick = { layout, t -> vm.startWith(layout); tab = t; pick() }, onCollage = onCollage)
+            return@Scaffold
+        }
         Column(Modifier.fillMaxSize().padding(pad)) {
             // Format and slide count.
             Row(
@@ -283,6 +288,49 @@ private fun hits(l: Layer, x: Float, y: Float): Boolean {
     val dx = x - l.cx; val dy = y - l.cy
     val rx = dx * cos(a) - dy * sin(a); val ry = dx * sin(a) + dy * cos(a)
     return abs(rx) <= l.width / 2 && abs(ry) <= l.height / 2
+}
+
+private class HubItem(val title: String, val body: String, val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val layout: AutoLayout?, val tab: StudioTab = StudioTab.Layout)
+
+private val hubItems = listOf(
+    HubItem("Seamless carousel", "Photos flow across slides, so every swipe continues the picture", Icons.Default.ViewCarousel, AutoLayout.Seams),
+    HubItem("Panorama post", "One wide photo split into perfectly aligned slides", Icons.Default.Panorama, AutoLayout.Panorama),
+    HubItem("Photo dump", "Up to 10 photos tossed across slides like prints on a table", Icons.Default.Collections, AutoLayout.Dump),
+    HubItem("Fit to post", "Each photo on its own slide with clean borders, no cropping", Icons.Default.CropPortrait, AutoLayout.OnePerSlide),
+    HubItem("Feed filters", "Give all your photos one matching look before posting", Icons.Default.AutoAwesome, AutoLayout.OnePerSlide, StudioTab.Filters),
+    HubItem("Collage", "Grid and freestyle collages in Collage Studio", Icons.Default.GridView, null),
+)
+
+/** Feed Studio start screen: pick what to make, then choose photos. */
+@Composable
+private fun StudioHub(modifier: Modifier, onPick: (AutoLayout, StudioTab) -> Unit, onCollage: () -> Unit) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+        Spacer(Modifier.height(8.dp))
+        Text("What are you posting?", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(6.dp))
+        Text("Pick a style, then choose your photos. Everything exports in Instagram sizes.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(20.dp))
+        hubItems.forEach { item ->
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 6.dp)
+                    .squishClickable(pressedScale = 0.97f) { if (item.layout == null) onCollage() else onPick(item.layout, item.tab) }
+                    .clip(RoundedCornerShape(22.dp)).background(PanelHigh).padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(OnInk), contentAlignment = Alignment.Center) {
+                    Icon(item.icon, null, tint = Ink)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(item.body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
 }
 
 @Composable

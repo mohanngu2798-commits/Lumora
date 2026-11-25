@@ -26,7 +26,7 @@ class Upscaler(context: Context) : AutoCloseable {
     }
 
     /** Returns a new bitmap 4x the size of [src]. [progress] gets 0..1. */
-    fun upscale4x(src: Bitmap, progress: (Float) -> Unit = {}): Bitmap {
+    fun upscale4x(src: Bitmap, progress: (Float) -> Unit = {}, cancelled: () -> Boolean = { false }): Bitmap {
         val w = src.width; val h = src.height
         val inPx = IntArray(w * h).also { src.getPixels(it, 0, w, 0, 0, w, h) }
         val ow = w * SCALE; val oh = h * SCALE
@@ -38,6 +38,7 @@ class Upscaler(context: Context) : AutoCloseable {
 
         val plan = Tiles.plan(w, h, IN, PAD)
         plan.forEachIndexed { n, t ->
+            if (cancelled()) throw java.util.concurrent.CancellationException("AI job replaced")
             inF.clear()
             for (ty in 0 until IN) {
                 val sy = (t.readY + ty).coerceIn(0, h - 1)

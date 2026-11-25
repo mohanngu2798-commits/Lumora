@@ -6,7 +6,6 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -27,6 +26,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -81,7 +88,7 @@ fun AiStudioScreen(vm: AiViewModel, onBack: () -> Unit) {
                 AiHome(facesAvailable = vm.facesAvailable, onPick = pick)
             } else {
                 Box(Modifier.weight(1f).fillMaxWidth().background(PhotoCanvas), contentAlignment = Alignment.Center) {
-                    s.source?.let { BeforeAfter(it, s.result) }
+                    s.source?.let { BeforeAfter(it, s.result, s.focus) }
                     if (s.busy) Progress(s.label, s.progress)
                 }
                 Surface(color = PanelBg, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
@@ -90,7 +97,8 @@ fun AiStudioScreen(vm: AiViewModel, onBack: () -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             AiMode.entries.forEach { m -> ColorChip(m.label, Magenta, s.mode == m) { if (!s.busy) vm.run(m) } }
                         }
-                        Text(s.mode.blurb, style = MaterialTheme.typography.bodySmall,
+                        val sizes = s.source?.let { src -> s.result?.let { r -> "  ${src.width}×${src.height} → ${r.width}×${r.height}" } } ?: ""
+                        Text(s.mode.blurb + sizes + if (s.result != null) ". Pinch to zoom, double-tap for a close-up." else "", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
                     }
                 }
@@ -127,33 +135,87 @@ private fun AiHome(facesAvailable: Boolean, onPick: (AiMode) -> Unit) {
     }
 }
 
-/** Before/after view: drag anywhere to move the divider. */
+/**
+ * Before/after view. One finger moves the divider; two fingers zoom and pan; double-tap jumps between
+ * the whole photo and a close-up (of the restored face when there is one).
+ */
 @Composable
-private fun BeforeAfter(before: android.graphics.Bitmap, after: android.graphics.Bitmap?) {
+private fun BeforeAfter(before: android.graphics.Bitmap, after: android.graphics.Bitmap?, focus: android.graphics.RectF?) {
     val b = remember(before) { before.asImageBitmap() }
     val a = remember(after) { after?.asImageBitmap() }
     var split by remember { mutableFloatStateOf(0.5f) }
-    Canvas(
-        Modifier.fillMaxSize().padding(12.dp)
-            .pointerInput(Unit) {
-                detectDragGestures { change, _ -> split = (change.position.x / size.width).coerceIn(0f, 1f) }
+    var zoom by remember(before) { mutableFloatStateOf(1f) }
+    var pan by remember(before) { mutableStateOf(Offset.Zero) }
+    var box by remember { mutableStateOf(IntSize.Zero) }
+    // Fit rectangle of the photo inside the view at zoom 1.
+    fun fit(): Pair<Offset, androidx.compose.ui.geometry.Size> {
+        val s = min(box.width.toFloat() / b.width, box.height.toFloat() / b.height)
+        val w = b.width * s; val h = b.height * s
+        return Offset((box.width - w) / 2, (box.height - h) / 2) to androidx.compose.ui.geometry.Size(w, h)
+    }
+    fun zoomTo(r: android.graphics.RectF?) {
+        if (r == null || box == IntSize.Zero) { zoom = 1f; pan = Offset.Zero; return }
+        val (o, sz) = fit(); val s = sz.width / b.width
+        val z = (min(box.width / (r.width() * s), box.height / (r.height() * s))).coerceIn(1f, 6f)
+        val cx = o.x + r.centerX() * s; val cy = o.y + r.centerY() * s
+        zoom = z; pan = Offset(box.width / 2f - cx * z, box.height / 2f - cy * z)
+        split = 0.5f
+    }
+    // Jump to the restored face when a result arrives.
+    LaunchedEffect(after, focus, box) { if (after != null && focus != null && box != IntSize.Zero) zoomTo(focus) }
+    androidx.compose.foundation.Canvas(
+        Modifier.fillMaxSize().padding(12.dp).onSizeChanged { box = it }
+            .pointerInput(before) {
+                detectTapGestures(onDoubleTap = { if (zoom > 1.05f) zoomTo(null) else zoomTo(focus ?: run {
+                    val (o, sz) = fit(); val s = sz.width / b.width
+                    val px = (it.x - pan.x) / zoom; val py = (it.y - pan.y) / zoom
+                    val sx = (px - o.x) / s; val sy = (py - o.y) / s; val r = b.width / 6f
+                    android.graphics.RectF(sx - r, sy - r, sx + r, sy + r)
+                }) })
             }
-            .pointerInput(Unit) { detectTapGestures { split = (it.x / size.width).coerceIn(0f, 1f) } }
+            .pointerInput(before) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    do {
+                        val e = awaitPointerEvent()
+                        val down = e.changes.count { it.pressed }
+                        if (down >= 2) {
+                            val z = e.calculateZoom(); val c = e.calculateCentroid(useCurrent = true)
+                            val nz = (zoom * z).coerceIn(1f, 8f)
+                            pan = if (nz <= 1.001f) Offset.Zero else (pan - c) * (nz / zoom) + c + e.calculatePan()
+                            zoom = nz
+                            e.changes.forEach { it.consume() }
+                        } else if (down == 1) {
+                            val ch = e.changes.first { it.pressed }
+                            if (ch.positionChanged()) {
+                                split = (ch.position.x / size.width).coerceIn(0f, 1f)
+                                ch.consume()
+                            }
+                        }
+                    } while (e.changes.any { it.pressed })
+                }
+            }
     ) {
-        val scale = min(size.width / b.width, size.height / b.height)
-        val w = b.width * scale; val h = b.height * scale
-        val x = (size.width - w) / 2; val y = (size.height - h) / 2
-        val dst = IntSize(w.roundToInt(), h.roundToInt()); val at = IntOffset(x.roundToInt(), y.roundToInt())
-        drawImage(b, dstOffset = at, dstSize = dst)
+        val (o, sz) = fit()
+        val dst = IntSize(sz.width.roundToInt(), sz.height.roundToInt()); val at = IntOffset(o.x.roundToInt(), o.y.roundToInt())
+        val cut = size.width * split
+        clipRect {
+            withTransform({ translate(pan.x, pan.y); scale(zoom, zoom, Offset.Zero) }) {
+                drawImage(b, dstOffset = at, dstSize = dst)
+            }
+            if (a != null) clipRect(left = cut) {
+                withTransform({ translate(pan.x, pan.y); scale(zoom, zoom, Offset.Zero) }) {
+                    drawImage(a, dstOffset = at, dstSize = dst)
+                }
+            }
+        }
         if (a != null) {
-            val cut = x + w * split
-            clipRect(left = cut) { drawImage(a, dstOffset = at, dstSize = dst) }
-            drawLine(Color.White, Offset(cut, y), Offset(cut, y + h), strokeWidth = 2.dp.toPx())
-            drawCircle(Color.White, 12.dp.toPx(), Offset(cut, y + h / 2))
+            drawLine(Color.White, Offset(cut, 0f), Offset(cut, size.height), strokeWidth = 2.dp.toPx())
+            drawCircle(Color.White, 12.dp.toPx(), Offset(cut, size.height / 2))
         }
     }
     if (a != null) Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Tag("Before"); Tag("After")
+        Tag("Before"); Tag(if (zoom > 1.05f) "After · ${"%.1f".format(zoom)}×" else "After")
     }
 }
 

@@ -50,6 +50,9 @@ private val effectTools = listOf(
     EffectTool("HDR", Icons.Default.HdrOn, Saffron, 0f..1f, { it.hdr }) { p, v -> p.copy(hdr = v) },
     EffectTool("Glow", Icons.Default.Flare, Turmeric, 0f..1f, { it.glow }) { p, v -> p.copy(glow = v) },
     EffectTool("Lens blur", Icons.Default.BlurOn, Peacock, 0f..1f, { it.lensBlur }) { p, v -> p.copy(lensBlur = v) },
+    EffectTool("Motion blur", Icons.Default.Air, Violet, 0f..1f, { it.motionBlur }) { p, v -> p.copy(motionBlur = v) },
+    EffectTool("Shake", Icons.Default.Vibration, Saffron, 0f..1f, { it.shake }) { p, v -> p.copy(shake = v) },
+    EffectTool("Soft blur", Icons.Default.BlurCircular, Peacock, 0f..1f, { it.softBlur }) { p, v -> p.copy(softBlur = v) },
     EffectTool("Light leak", Icons.Default.WbSunny, Magenta, 0f..1f, { it.lightLeak }) { p, v -> p.copy(lightLeak = v) },
 )
 
@@ -86,6 +89,13 @@ internal fun ToolsPanel(params: EditParams, vm: EditorViewModel) {
                 "Lens blur" -> ChipRow {
                     BlurShape.entries.forEach { s ->
                         ColorChip(s.label, tool.accent, params.blurShape == s) { vm.commit(params.copy(blurShape = s)) }
+                    }
+                }
+                "Motion blur" -> ChipRow {
+                    listOf("Sideways" to 0f, "Up-down" to 90f, "Diagonal" to 35f, "Other diagonal" to -35f).forEach { (n, a) ->
+                        ColorChip(n, tool.accent, params.motionAngle == a) {
+                            vm.commit(params.copy(motionAngle = a, motionBlur = if (params.motionBlur == 0f) 0.5f else params.motionBlur))
+                        }
                     }
                 }
                 "Light leak" -> ChipRow {

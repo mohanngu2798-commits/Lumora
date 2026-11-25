@@ -99,6 +99,9 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Chosen on the Feed Studio start screen: the layout used once photos are picked. */
+    fun startWith(layout: AutoLayout) { lastLayout = layout }
+
     fun applyLayout(layout: AutoLayout) {
         lastLayout = layout
         _state.update { s ->

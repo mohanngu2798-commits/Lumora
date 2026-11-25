@@ -32,6 +32,10 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,7 +76,10 @@ fun HomeScreen(
     val edit = { editPicker.launch(image) }
     val enhance = { enhancePicker.launch(image) }
 
-    Column(Modifier.fillMaxSize().background(Ink).verticalScroll(rememberScrollState())) {
+    Box(Modifier.fillMaxSize().background(Ink)) {
+    val scroll = rememberScrollState()
+    CompositionLocalProvider(LocalHomeScroll provides scroll) {
+    Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
         Box(Modifier.fillMaxWidth().height(430.dp)) {
             PrintWall(Modifier.fillMaxSize())
             // Fade the wall into the page.
@@ -177,7 +184,13 @@ fun HomeScreen(
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+    }
+    // Keeps scrolled content from running under the status bar icons.
+    Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Ink.copy(alpha = 0.92f)))
+    }
 }
+
+private val LocalHomeScroll = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.foundation.ScrollState?> { null }
 
 /** A big entry card that morphs into its screen. */
 @Composable
@@ -206,19 +219,13 @@ private fun SectionCard(key: String, title: String, subtitle: String, art: @Comp
 private fun EditorArt(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "editorArt")
     val split by t.animateFloat(0.3f, 0.7f, infiniteRepeatable(tween(3200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "split")
+    val img = androidx.compose.ui.graphics.ImageBitmap.imageResource(app.lumora.editor.R.drawable.sample_editor)
+    val dull = remember { androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0.25f) }) }
     Canvas(modifier.clipToBounds()) {
-        val p = prints[0]
-        drawRect(Brush.linearGradient(listOf(Color(0xFF9A8F86), Color(0xFF6E6660), Color(0xFF3F3A37)), end = Offset(size.width, size.height)))
-        drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.35f), Color.Transparent),
-            center = Offset(size.width * 0.72f, size.height * 0.3f), radius = size.height * 0.7f),
-            radius = size.height * 0.7f, center = Offset(size.width * 0.72f, size.height * 0.3f))
+        drawPhoto(img, Offset.Zero, size, filter = dull)
+        drawRect(Color.Black.copy(alpha = 0.12f))
         val x = size.width * split
-        clipRect(left = x) {
-            drawRect(Brush.linearGradient(p, end = Offset(size.width, size.height)))
-            drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.55f), Color.Transparent),
-                center = Offset(size.width * 0.72f, size.height * 0.3f), radius = size.height * 0.7f),
-                radius = size.height * 0.7f, center = Offset(size.width * 0.72f, size.height * 0.3f))
-        }
+        clipRect(left = x) { drawPhoto(img, Offset.Zero, size) }
         drawLine(Color.White, Offset(x, 0f), Offset(x, size.height), strokeWidth = 3.dp.toPx())
         drawCircle(Color.White, radius = 9.dp.toPx(), center = Offset(x, size.height / 2))
     }
@@ -229,6 +236,7 @@ private fun EditorArt(modifier: Modifier) {
 private fun CollageArt(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "collageArt")
     val k by t.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "k")
+    val imgs = rememberImages(Samples.collage)
     Canvas(modifier.clipToBounds().background(PhotoCanvas)) {
         val g = 6.dp.toPx(); val h = size.height - g * 2; val w = h * 1.6f; val x0 = (size.width - w) / 2
         val split = 0.45f + 0.15f * k; val splitY = 0.55f - 0.1f * k
@@ -237,9 +245,8 @@ private fun CollageArt(modifier: Modifier) {
             floatArrayOf(split, splitY, (1f - split) / 2, 1f - splitY), floatArrayOf(split + (1f - split) / 2, splitY, (1f - split) / 2, 1f - splitY),
         )
         cells.forEachIndexed { i, c ->
-            val p = prints[(i + 2) % prints.size]
             val o = Offset(x0 + c[0] * w + g / 2, g + c[1] * h + g / 2); val sz = Size(c[2] * w - g, c[3] * h - g)
-            drawRoundRect(Brush.linearGradient(p, start = o, end = Offset(o.x + sz.width, o.y + sz.height)), o, sz, CornerRadius(10f))
+            drawPhoto(imgs[i], o, sz, 10f)
         }
     }
 }
@@ -249,17 +256,18 @@ private fun CollageArt(modifier: Modifier) {
 private fun AiArt(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "aiArt")
     val scan by t.animateFloat(0.15f, 0.85f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scan")
+    val sharp = androidx.compose.ui.graphics.ImageBitmap.imageResource(app.lumora.editor.R.drawable.sample_ai_face)
+    // The "before": the same picture shrunk and blown back up, so it looks soft and old.
+    val soft = remember(sharp) {
+        val a = sharp.asAndroidBitmap()
+        val tiny = android.graphics.Bitmap.createScaledBitmap(a, a.width / 10, a.height / 10, true)
+        android.graphics.Bitmap.createScaledBitmap(tiny, a.width, a.height, true).asImageBitmap()
+    }
+    val faded = remember { androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0.4f) }) }
     Canvas(modifier.clipToBounds()) {
-        val p = prints[3]
-        drawRect(Brush.linearGradient(listOf(p[0].copy(alpha = 0.5f), p[2].copy(alpha = 0.6f)), end = Offset(size.width, size.height)))
+        drawPhoto(soft, Offset.Zero, size, filter = faded)
         val x = size.width * scan
-        clipRect(right = x) {
-            drawRect(Brush.linearGradient(p, end = Offset(size.width, size.height)))
-            for (i in 0 until 14) {
-                val cx = size.width * ((i * 37) % 100) / 100f; val cy = size.height * ((i * 53) % 100) / 100f
-                drawCircle(Color.White.copy(alpha = 0.8f), radius = 2.dp.toPx(), center = Offset(cx, cy))
-            }
-        }
+        clipRect(right = x) { drawPhoto(sharp, Offset.Zero, size) }
         drawLine(Brush.verticalGradient(listOf(Color.Transparent, Color.White, Color.Transparent)), Offset(x, 0f), Offset(x, size.height), strokeWidth = 3.dp.toPx())
     }
 }
@@ -269,6 +277,7 @@ private fun AiArt(modifier: Modifier) {
 private fun StudioArt(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "studioArt")
     val slide by t.animateFloat(0f, 1f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "slide")
+    val wall = rememberImages(Samples.wall)
     Canvas(modifier.clipToBounds().background(PhotoCanvas)) {
         val h = size.height * 0.78f; val w = h * 0.8f; val top = (size.height - h) / 2
         val period = w * 4
@@ -278,13 +287,12 @@ private fun StudioArt(modifier: Modifier) {
             drawRect(Color.White, Offset(x, top), Size(w, h))
         }
         for (i in 0 until 8) {
-            val p = prints[(i + 1) % prints.size]
+            val img = wall[(i + 1) % wall.size]
             val cx = i * w - shift % period + w * 0.2f
             val ph = h * 0.62f; val pw = ph * 0.8f
             val y = top + if (i % 2 == 0) h * 0.08f else h * 0.3f
             rotate(if (i % 2 == 0) -4f else 4f, pivot = Offset(cx, y + ph / 2)) {
-                drawRoundRect(Brush.linearGradient(p, start = Offset(cx - pw / 2, y), end = Offset(cx + pw / 2, y + ph)),
-                    Offset(cx - pw / 2, y), Size(pw, ph), CornerRadius(8f))
+                drawPhoto(img, Offset(cx - pw / 2, y), Size(pw, ph), 8f)
             }
         }
         for (i in -1 until 6) {
@@ -313,7 +321,16 @@ private fun FeaturePill(icon: ImageVector, label: String, onClick: () -> Unit) {
 private fun Appear(index: Int, content: @Composable () -> Unit) {
     val a = remember { Animatable(0f) }
     LaunchedEffect(Unit) { delay(60L * index + 150); a.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessLow)) }
-    Box(Modifier.graphicsLayer { alpha = a.value; translationY = (1f - a.value) * 36f }) { content() }
+    // Jelly scroll: each card trails the scroll on its own spring, later cards a little looser, so a fling
+    // ripples down the page and every card settles with a small wobble.
+    val scroll = LocalHomeScroll.current
+    val target = scroll?.value?.toFloat() ?: 0f
+    val follow by animateFloatAsState(target, spring(dampingRatio = 0.5f, stiffness = (420f - index * 45f).coerceAtLeast(160f)), label = "jelly")
+    Box(Modifier.graphicsLayer {
+        alpha = a.value
+        val lag = (target - follow).coerceIn(-90f, 90f) * (0.35f + index * 0.08f)
+        translationY = (1f - a.value) * 36f + lag
+    }) { content() }
 }
 
 // Colour stories for the drifting prints: each is a little abstract "photo" in brand-adjacent tones.
@@ -334,6 +351,7 @@ fun PrintWall(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "wall")
     val drift by t.animateFloat(0f, 1f, infiniteRepeatable(tween(28000, easing = LinearEasing)), label = "drift")
     val frame = PanelHigh
+    val wall = rememberImages(Samples.wall)
     Canvas(modifier.clipToBounds().background(PhotoCanvas)) {
         val cardW = size.width * 0.42f
         val cardH = cardW * 1.25f
@@ -349,20 +367,11 @@ fun PrintWall(modifier: Modifier) {
                 for (r in -1 until rows + 1) {
                     val x = c * colStep - cardW * 0.4f
                     val y = r * rowStep - colShift + rowStep * 0.2f
-                    val p = prints[((c + 1) * 3 + r + 8) % prints.size]
+                    val img = wall[(((c + 1) * 3 + r + 8) % wall.size + wall.size) % wall.size]
                     val border = cardW * 0.035f
                     drawRoundRect(frame, Offset(x - border, y - border), Size(cardW + border * 2, cardH + border * 2),
                         CornerRadius(cardW * 0.09f))
-                    drawRoundRect(
-                        Brush.linearGradient(p, start = Offset(x, y), end = Offset(x + cardW, y + cardH)),
-                        Offset(x, y), Size(cardW, cardH), CornerRadius(cardW * 0.07f),
-                    )
-                    // A soft "sun" for a photographic feel.
-                    drawCircle(
-                        Brush.radialGradient(listOf(Color.White.copy(alpha = 0.55f), Color.Transparent),
-                            center = Offset(x + cardW * 0.7f, y + cardH * 0.3f), radius = cardW * 0.45f),
-                        radius = cardW * 0.45f, center = Offset(x + cardW * 0.7f, y + cardH * 0.3f),
-                    )
+                    drawPhoto(img, Offset(x, y), Size(cardW, cardH), cardW * 0.07f)
                 }
             }
         }

@@ -223,6 +223,9 @@ private fun PostGrid(selected: Set<String>, onToggle: (String) -> Unit) {
                                 .border(2.dp, if (on) OnInk else Color.Transparent, RoundedCornerShape(16.dp)),
                             contentAlignment = Alignment.BottomEnd,
                         ) {
+                            androidx.compose.foundation.Image(
+                                androidx.compose.ui.res.painterResource(app.lumora.editor.ui.home.Samples.forTopic(label)), null,
+                                Modifier.matchParentSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                             if (on) Box(
                                 Modifier.padding(8.dp).size(22.dp).clip(CircleShape).background(Color.White),
                                 contentAlignment = Alignment.Center,

@@ -34,6 +34,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import app.lumora.editor.ui.home.drawPhoto
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -141,6 +143,12 @@ private fun ModeCard(title: String, body: String, icon: ImageVector, onClick: ()
 @Composable
 private fun Editor(s: CollageState, vm: CollageViewModel) {
     var tab by remember { mutableStateOf(CollageTab.Layout) }
+    val thumbs = remember(s.photos) {
+        s.photos.map { b ->
+            val f = 120f / maxOf(b.width, b.height)
+            android.graphics.Bitmap.createScaledBitmap(b, maxOf(1, (b.width * f).toInt()), maxOf(1, (b.height * f).toInt()), true).asImageBitmap()
+        }
+    }
     val current by rememberUpdatedState(s)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth().background(PhotoCanvas).padding(16.dp), contentAlignment = Alignment.Center) {
@@ -195,12 +203,13 @@ private fun Editor(s: CollageState, vm: CollageViewModel) {
                                 Canvas(Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(PanelHigh)
                                     .border(2.dp, if (sel) OnInk else Color.Transparent, RoundedCornerShape(10.dp))
                                     .squishClickable(pressedScale = 0.88f) { vm.setTemplate(i) }.padding(6.dp)) {
-                                    cells.forEach { c ->
+                                    cells.forEachIndexed { k, c ->
                                         val g = 2.dp.toPx()
-                                        drawRoundRect(Spectrum[(i + cells.indexOf(c)) % Spectrum.size].copy(alpha = if (sel) 1f else 0.6f),
-                                            Offset(c.x * size.width + g / 2, c.y * size.height + g / 2),
-                                            Size(c.w * size.width - g, c.h * size.height - g),
-                                            androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()))
+                                        // Show the user's own photos in each layout preview.
+                                        run {
+                                            drawPhoto(thumbs[k % thumbs.size], Offset(c.x * size.width + g / 2, c.y * size.height + g / 2),
+                                                Size(c.w * size.width - g, c.h * size.height - g), 3.dp.toPx())
+                                        }
                                     }
                                 }
                             }

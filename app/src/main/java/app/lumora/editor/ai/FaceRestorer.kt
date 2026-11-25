@@ -22,13 +22,51 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
     private val detector = Interpreter(map(DETECTOR), Interpreter.Options().setNumThreads(2))
     private val gfpgan: Interpreter? = if (available(context)) Interpreter(map(GFPGAN), Interpreter.Options().setNumThreads(4)) else null
 
-    /** Finds faces; coordinates are returned in [src] pixels. */
+    /**
+     * Finds faces; coordinates are returned in [src] pixels. Small faces (a person far away in a tall photo)
+     * vanish when the whole photo is squeezed into the detector's 192 px input, so the photo is also scanned
+     * in overlapping square windows and the results merged.
+     */
     fun detect(src: Bitmap): List<Face> {
-        val side = max(src.width, src.height)
-        val ox = (side - src.width) / 2f; val oy = (side - src.height) / 2f
+        val w = src.width; val h = src.height
+        val windows = ArrayList<android.graphics.Rect>()
+        windows += android.graphics.Rect(0, 0, w, h)
+        for (side in listOf(minOf(w, h), minOf(w, h) / 2)) {
+            if (side < DET) continue
+            val step = side / 2
+            var y = 0
+            while (true) {
+                var x = 0
+                while (true) {
+                    windows += android.graphics.Rect(x, y, minOf(x + side, w), minOf(y + side, h))
+                    if (x + side >= w) break
+                    x = minOf(x + step, w - side)
+                }
+                if (y + side >= h) break
+                y = minOf(y + step, h - side)
+            }
+        }
+        val all = windows.flatMap { detectIn(src, it) }.sortedByDescending { it.score }
+        val kept = ArrayList<Face>()
+        for (f in all) if (kept.none { iou(it, f) > 0.3f }) kept += f
+        return kept.take(MAX_FACES)
+    }
+
+    private fun iou(a: Face, b: Face): Float {
+        val ix = maxOf(0f, minOf(a.right, b.right) - maxOf(a.left, b.left))
+        val iy = maxOf(0f, minOf(a.bottom, b.bottom) - maxOf(a.top, b.top))
+        val inter = ix * iy
+        val union = (a.right - a.left) * (a.bottom - a.top) + (b.right - b.left) * (b.bottom - b.top) - inter
+        return if (union <= 0f) 0f else inter / union
+    }
+
+    private fun detectIn(src: Bitmap, r: android.graphics.Rect): List<Face> {
+        val side = max(r.width(), r.height())
+        val ox = (side - r.width()) / 2f - r.left; val oy = (side - r.height()) / 2f - r.top
         val sq = Bitmap.createBitmap(DET, DET, Bitmap.Config.ARGB_8888)
         Canvas(sq).apply {
             val s = DET.toFloat() / side
+            clipRect((r.left + ox) * s, (r.top + oy) * s, (r.right + ox) * s, (r.bottom + oy) * s)
             drawBitmap(src, Matrix().apply { setScale(s, s); postTranslate(ox * s, oy * s) }, Paint(Paint.FILTER_BITMAP_FLAG))
         }
         val px = IntArray(DET * DET).also { sq.getPixels(it, 0, DET, 0, 0, DET, DET) }; sq.recycle()
@@ -46,7 +84,7 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
         val flatCls = FloatArray(2304) { cls[0][it][0] }
         fun tx(x: Float) = x * side - ox
         fun ty(y: Float) = y * side - oy
-        return FaceMath.decode(flatReg, flatCls).map { f ->
+        return FaceMath.decode(flatReg, flatCls, minScore = 0.55f).map { f ->
             Face(tx(f.left), ty(f.top), tx(f.right), ty(f.bottom), f.keypoints.map { tx(it.first) to ty(it.second) }, f.score)
         }
     }
@@ -55,9 +93,14 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
      * Restores every face of [original] and blends them onto [canvasBitmap] (same size, mutable),
      * e.g. an AI-enhanced copy of the photo. Returns how many faces were restored.
      */
+    /** Faces found by the last [restoreFaces] call, in photo pixels. */
+    var lastFaces: List<Face> = emptyList()
+        private set
+
     fun restoreFaces(original: Bitmap, canvasBitmap: Bitmap, progress: (Float) -> Unit = {}): Int {
         val model = gfpgan ?: return 0
         val faces = detect(original).filter { (it.right - it.left) > 24f }.take(MAX_FACES)
+        lastFaces = faces
         val canvas = Canvas(canvasBitmap)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
         val mask = featherMask()

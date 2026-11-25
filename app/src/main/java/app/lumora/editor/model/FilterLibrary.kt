@@ -191,10 +191,28 @@ object FilterLibrary {
             .tone(0x0F6A78, 0xFFC06A, 0.3f),
     ))
 
+    /** Intentional blur and motion: the "shot on the move" aesthetic. */
+    val blur = FilterGroup("Blur & Motion", listOf(
+        "Motion Blur" to EditParams(motionBlur = 0.6f, contrast = 0.08f, vibrance = 0.1f),
+        "Night Ride" to EditParams(motionBlur = 0.7f, glow = 0.35f, contrast = 0.2f, saturation = 0.2f, warmth = -0.15f)
+            .tone(0x1A1F5C, 0xFFB86B, 0.3f),
+        "Hand Shake" to EditParams(shake = 0.55f, grain = 0.2f, contrast = 0.1f),
+        "Ghost" to EditParams(shake = 0.9f, fade = 0.15f, glow = 0.2f, saturation = -0.15f),
+        "Dreamy Blur" to EditParams(softBlur = 0.45f, glow = 0.35f, exposure = 0.1f, fade = 0.12f).tone(0x7A6AA8, 0xFFE6F0, 0.25f),
+        "Hazy Memory" to EditParams(softBlur = 0.35f, fade = 0.3f, warmth = 0.2f, grain = 0.25f, vignette = 0.3f),
+        "Party Flash" to EditParams(shake = 0.45f, motionBlur = 0.25f, exposure = 0.2f, contrast = 0.3f, vignette = 0.45f, saturation = 0.15f),
+        "Rush Hour" to EditParams(motionBlur = 0.55f, motionAngle = 0f, clarity = 0.15f, saturation = -0.25f, contrast = 0.15f),
+        "Falling" to EditParams(motionBlur = 0.6f, motionAngle = 90f, glow = 0.2f, fade = 0.1f),
+        "Spin Out" to EditParams(motionBlur = 0.5f, motionAngle = 35f, shake = 0.3f, contrast = 0.15f, vibrance = 0.2f),
+        "Out of Focus" to EditParams(softBlur = 0.7f, glow = 0.15f),
+        "Lo-fi Blur" to EditParams(softBlur = 0.25f, shake = 0.3f, grain = 0.4f, fade = 0.2f, vignette = 0.35f)
+            .tone(0x2E3B2A, 0xF0D9AE, 0.3f),
+    ))
+
     val essentials = FilterGroup("Essentials", Looks.all)
     val feed = FilterGroup("Feed", InstaLooks.all.filter { it.first != "None" })
 
-    val groups: List<FilterGroup> = listOf(exclusive, cities, essentials, film, lomo, vintage, portrait, feed, travel, food, cinema, night, mono)
+    val groups: List<FilterGroup> = listOf(exclusive, cities, blur, essentials, film, lomo, vintage, portrait, feed, travel, food, cinema, night, mono)
 
     val all: List<Pair<String, EditParams>> by lazy { groups.flatMap { it.filters } }
     fun find(name: String?): EditParams? = all.firstOrNull { it.first == name }?.second
