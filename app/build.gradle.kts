@@ -1,3 +1,6 @@
+import java.time.LocalDate
+import java.time.ZoneId
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -20,7 +23,7 @@ android {
         // without it the offer never ends (test builds).
         val launch = (project.findProperty("launchDate") as String?)?.takeIf { it.isNotBlank() }
         val offerEnd = launch?.let {
-            java.time.LocalDate.parse(it).plusDays(15).atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
+            LocalDate.parse(it).plusDays(15).atStartOfDay(ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
         } ?: 0L
         buildConfigField("long", "LAUNCH_OFFER_END", "${offerEnd}L")
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
