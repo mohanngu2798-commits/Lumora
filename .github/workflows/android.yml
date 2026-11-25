@@ -18,3 +18,21 @@ jobs:
         with:
           name: vannam-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+      # Play Store bundle. Signed when the repository has the VANNAM_* secrets, unsigned otherwise.
+      - name: Unpack upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.VANNAM_KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          echo "VANNAM_KEYSTORE_FILE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+      - name: Build Play bundle
+        env:
+          VANNAM_KEYSTORE_PASSWORD: ${{ secrets.VANNAM_KEYSTORE_PASSWORD }}
+          VANNAM_KEY_ALIAS: ${{ secrets.VANNAM_KEY_ALIAS }}
+          VANNAM_KEY_PASSWORD: ${{ secrets.VANNAM_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vannam-play-bundle
+          path: app/build/outputs/bundle/release/*.aab

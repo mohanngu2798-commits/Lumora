@@ -5,22 +5,38 @@ plugins {
 }
 
 android {
-    // Change this to a domain you own before the first Play Store upload. It can never change afterwards.
+    // The code namespace stays as it is; the Play Store identity is applicationId below.
     namespace = "app.lumora.editor"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.lumora.editor"
+        applicationId = "com.vannam.photo"   // Play Store ID, can never change after the first upload
         minSdk = 29          // Android 10+: scoped storage, no storage permission needed
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.7.0"
+        versionCode = 9
+        versionName = "0.8.0"
         // Phones and most emulators; keeps the AI runtime small.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
+    // Release signing comes from CI secrets; nothing secret lives in the repo.
+    val ks = System.getenv("VANNAM_KEYSTORE_FILE")
+    signingConfigs {
+        if (ks != null && file(ks).exists()) create("upload") {
+            storeFile = file(ks)
+            storePassword = System.getenv("VANNAM_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("VANNAM_KEY_ALIAS")
+            keyPassword = System.getenv("VANNAM_KEY_PASSWORD")
+        }
+    }
+    // The 174 MB face model ships to Play as an install-time asset pack so the base app stays under Play's size limit.
+    assetPacks += listOf(":ai_models")
+    // Debug APKs (installed directly, not through Play) carry the model inside the app instead.
+    sourceSets["debug"].assets.srcDir(rootProject.file("ai_models/src/main/assets"))
+
     buildTypes {
         release {
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -63,7 +79,7 @@ dependencies {
 // /models and joined into the app's assets before each build.
 val joinModels by tasks.registering {
     val parts = rootProject.fileTree("models") { include("gfpgan_v1_4.tflite.part*") }
-    val out = file("src/main/assets/gfpgan_v1_4.tflite")
+    val out = rootProject.file("ai_models/src/main/assets/gfpgan_v1_4.tflite")
     inputs.files(parts)
     outputs.file(out)
     doLast {
@@ -73,3 +89,4 @@ val joinModels by tasks.registering {
     }
 }
 tasks.named("preBuild") { dependsOn(joinModels) }
+project(":ai_models").tasks.matching { it.name != "joinModels" }.configureEach { dependsOn(joinModels) }

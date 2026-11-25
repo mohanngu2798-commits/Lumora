@@ -184,9 +184,19 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
     }
 
     private fun map(name: String): ByteBuffer {
-        val fd = context.assets.openFd(name)
-        return FileInputStream(fd.fileDescriptor).channel.map(FileChannel.MapMode.READ_ONLY, fd.startOffset, fd.declaredLength)
-            .also { fd.close() }
+        runCatching {
+            val fd = context.assets.openFd(name)
+            return FileInputStream(fd.fileDescriptor).channel.map(FileChannel.MapMode.READ_ONLY, fd.startOffset, fd.declaredLength)
+                .also { fd.close() }
+        }
+        // A compressed asset (possible inside a Play asset pack) can't be mapped directly: unpack it once.
+        val file = java.io.File(context.noBackupFilesDir, name)
+        if (!file.exists()) {
+            val tmp = java.io.File(file.path + ".tmp")
+            context.assets.open(name).use { i -> tmp.outputStream().use { i.copyTo(it) } }
+            tmp.renameTo(file)
+        }
+        return FileInputStream(file).channel.use { it.map(FileChannel.MapMode.READ_ONLY, 0, it.size()) }
     }
 
     override fun close() { detector.close(); gfpgan?.close() }
@@ -198,6 +208,6 @@ class FaceRestorer(private val context: Context) : AutoCloseable {
         private const val FACE = 512
         private const val MAX_FACES = 8
 
-        fun available(context: Context) = runCatching { context.assets.openFd(GFPGAN).close(); true }.getOrDefault(false)
+        fun available(context: Context) = runCatching { context.assets.open(GFPGAN).close(); true }.getOrDefault(false)
     }
 }

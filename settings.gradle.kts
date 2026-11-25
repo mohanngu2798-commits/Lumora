@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Vannam"
 include(":app")
+include(":ai_models")
