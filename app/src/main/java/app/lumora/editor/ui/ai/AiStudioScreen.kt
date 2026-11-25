@@ -6,6 +6,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -52,6 +53,7 @@ private val modeIcons = mapOf(
     AiMode.Enhance to Icons.Default.AutoAwesome,
     AiMode.Upscale2 to Icons.Default.Hd,
     AiMode.Upscale4 to Icons.Default.ZoomOutMap,
+    AiMode.Background to Icons.Default.ContentCut,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +67,9 @@ fun AiStudioScreen(vm: AiViewModel, onBack: () -> Unit) {
     val leave = { vm.clear(); onBack() }
     BackHandler(onBack = leave)
     LaunchedEffect(s.message) { s.message?.let { snackbar.showSnackbar(it); vm.messageShown() } }
+    val bgPicker = rememberLauncherForActivityResult(PickVisualMedia()) { it?.let { u -> vm.setBackdrop(app.lumora.editor.ai.Backdrop.Photo, u) } }
+    if (s.needPro) app.lumora.editor.ui.pro.PlansSheet(onDismiss = vm::plansShown,
+        reason = "You've used today's free AI edits. Go Pro for unlimited AI.")
 
     Scaffold(
         modifier = Modifier.morph("ai"),
@@ -88,7 +93,7 @@ fun AiStudioScreen(vm: AiViewModel, onBack: () -> Unit) {
                 AiHome(facesAvailable = vm.facesAvailable, onPick = pick)
             } else {
                 Box(Modifier.weight(1f).fillMaxWidth().background(PhotoCanvas), contentAlignment = Alignment.Center) {
-                    s.source?.let { BeforeAfter(it, s.result, s.focus) }
+                    s.source?.let { BeforeAfter(it, s.result, s.focus, checker = s.mode == AiMode.Background) }
                     if (s.busy) Progress(s.label, s.progress)
                 }
                 Surface(color = PanelBg, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
@@ -97,6 +102,18 @@ fun AiStudioScreen(vm: AiViewModel, onBack: () -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             AiMode.entries.forEach { m -> ColorChip(m.label, Magenta, s.mode == m) { if (!s.busy) vm.run(m) } }
                         }
+                        if (s.mode == AiMode.Background && s.cutout != null) {
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                app.lumora.editor.ai.Backdrop.entries.forEach { b ->
+                                    BackdropSwatch(b, s.backdrop == b) {
+                                        if (b == app.lumora.editor.ai.Backdrop.Photo) bgPicker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                                        else vm.setBackdrop(b)
+                                    }
+                                }
+                            }
+                        }
                         val sizes = s.source?.let { src -> s.result?.let { r -> "  ${src.width}×${src.height} → ${r.width}×${r.height}" } } ?: ""
                         Text(s.mode.blurb + sizes + if (s.result != null) ". Pinch to zoom, double-tap for a close-up." else "", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
@@ -104,6 +121,42 @@ fun AiStudioScreen(vm: AiViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BackdropSwatch(b: app.lumora.editor.ai.Backdrop, selected: Boolean, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.squishClickable(pressedScale = 0.9f, onClick = onClick)) {
+        Box(
+            Modifier.size(44.dp).clip(CircleShape)
+                .then(if (selected) Modifier.background(OnInk).padding(2.dp).clip(CircleShape).background(Ink).padding(2.dp).clip(CircleShape) else Modifier)
+                .background(if (b.colour == android.graphics.Color.TRANSPARENT) PanelHigh else Color(b.colour))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            when (b) {
+                app.lumora.editor.ai.Backdrop.Clear -> Canvas(Modifier.fillMaxSize()) { checkerboard(8.dp.toPx()) }
+                app.lumora.editor.ai.Backdrop.Blur -> Icon(Icons.Default.BlurOn, null, tint = OnInk)
+                app.lumora.editor.ai.Backdrop.Photo -> Icon(Icons.Default.Image, null, tint = OnInk)
+                else -> {}
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(b.label, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.checkerboard(cell: Float,
+    from: Offset = Offset.Zero, to: Offset = Offset(size.width, size.height)) {
+    drawRect(Color.White, from, androidx.compose.ui.geometry.Size(to.x - from.x, to.y - from.y))
+    var y = from.y; var row = 0
+    while (y < to.y) {
+        var x = from.x + if (row % 2 == 0) 0f else cell
+        while (x < to.x) {
+            drawRect(Color(0xFFDDDDDD), Offset(x, y), androidx.compose.ui.geometry.Size(minOf(cell, to.x - x), minOf(cell, to.y - y)))
+            x += cell * 2
+        }
+        y += cell; row++
     }
 }
 
@@ -127,7 +180,7 @@ private fun AiHome(facesAvailable: Boolean, onPick: (AiMode) -> Unit) {
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(if (m == AiMode.Restore) "Restore faces" else m.label, fontWeight = FontWeight.SemiBold)
-                    Text(if (m == AiMode.Restore && !facesAvailable) "Coming in the next update" else m.blurb,
+                    Text(if (m == AiMode.Restore && !facesAvailable) "Coming in the next update" else if (m == AiMode.Background) "Cut out people, pets and products in one tap" else m.blurb,
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -140,7 +193,7 @@ private fun AiHome(facesAvailable: Boolean, onPick: (AiMode) -> Unit) {
  * the whole photo and a close-up (of the restored face when there is one).
  */
 @Composable
-private fun BeforeAfter(before: android.graphics.Bitmap, after: android.graphics.Bitmap?, focus: android.graphics.RectF?) {
+private fun BeforeAfter(before: android.graphics.Bitmap, after: android.graphics.Bitmap?, focus: android.graphics.RectF?, checker: Boolean = false) {
     val b = remember(before) { before.asImageBitmap() }
     val a = remember(after) { after?.asImageBitmap() }
     var split by remember { mutableFloatStateOf(0.5f) }
@@ -205,6 +258,9 @@ private fun BeforeAfter(before: android.graphics.Bitmap, after: android.graphics
             }
             if (a != null) clipRect(left = cut) {
                 withTransform({ translate(pan.x, pan.y); scale(zoom, zoom, Offset.Zero) }) {
+                    // A cut-out may be transparent: show the usual checkerboard behind it, not the original photo.
+                    if (checker) checkerboard(10.dp.toPx() / zoom, Offset(at.x.toFloat(), at.y.toFloat()),
+                        Offset((at.x + dst.width).toFloat(), (at.y + dst.height).toFloat()))
                     drawImage(a, dstOffset = at, dstSize = dst)
                 }
             }

@@ -72,13 +72,12 @@ class MainActivity : ComponentActivity() {
                         Screen.Intro -> IntroScreen { a ->
                             prefs.use = a.use; prefs.interests = a.interests; prefs.postTypes = a.postTypes
                             prefs.onboarded = true
-                            if (prefs.offerStart == 0L) prefs.offerStart = System.currentTimeMillis()
                             studioFirst = prefs.studioFirst
                             screen = Screen.Home
                         }
                         Screen.Home -> HomeScreen(
                             studioFirst = studioFirst,
-                            premiumUntil = prefs.offerEnds,
+                            premiumUntil = app.lumora.editor.data.Pro.offerEnds,
                             onEdit = { vm.open(it); screen = Screen.Editor },
                             onEnhance = { vm.openAndEnhance(it); screen = Screen.Editor },
                             onStudio = { screen = Screen.Studio },

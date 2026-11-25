@@ -5,7 +5,10 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.lumora.editor.ai.Backdrop
+import app.lumora.editor.ai.BackgroundRemover
 import app.lumora.editor.ai.FaceRestorer
+import app.lumora.editor.data.Pro
 import app.lumora.editor.ai.Upscaler
 import app.lumora.editor.data.PhotoStore
 import app.lumora.editor.gl.Exporter
@@ -24,6 +27,7 @@ enum class AiMode(val label: String, val blurb: String) {
     Enhance("Enhance", "Recovers detail and cleans up noise, same size"),
     Upscale2("Upscale 2x", "Twice the resolution, AI-sharpened"),
     Upscale4("Upscale 4x", "Four times the resolution. Takes longer"),
+    Background("Remove background", "Cuts out the subject. Pick a new background below"),
 }
 
 data class AiState(
@@ -36,6 +40,12 @@ data class AiState(
     val message: String? = null,
     /** Area to zoom the compare view to (a restored face), in source pixels. */
     val focus: android.graphics.RectF? = null,
+    /** Remove background: the subject on transparency, and what goes behind it. */
+    val cutout: Bitmap? = null,
+    val backdrop: Backdrop = Backdrop.White,
+    val backdropPhoto: Bitmap? = null,
+    /** Set when the free daily AI limit stops a run: the plans sheet should show. */
+    val needPro: Boolean = false,
 )
 
 /** AI Studio: one photo in, one AI-processed photo out, compared with a before/after slider. */
@@ -44,6 +54,7 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(AiState())
     val state: StateFlow<AiState> = _state.asStateFlow()
     val facesAvailable = FaceRestorer.available(app)
+    val backgroundAvailable = BackgroundRemover.available(app)
 
     private var job: Job? = null
     private var generation = 0
@@ -64,18 +75,28 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
         val src = _state.value.source ?: return
         job?.cancel()
         val gen = ++generation
-        _state.update { it.copy(mode = mode, busy = true, progress = 0f, label = mode.label, result = null, focus = null) }
+        if (Pro.aiLeft(getApplication()) <= 0) { _state.update { it.copy(mode = mode, needPro = true) }; return }
+        _state.update { it.copy(mode = mode, busy = true, progress = 0f, label = mode.label, result = null, focus = null, cutout = null) }
         job = viewModelScope.launch {
             val me = coroutineContext[Job]
             val stop = { me?.isActive == false || gen != generation }
             // Progress only ever moves forward, and only for the current run.
             var shown = 0f
             var focus: android.graphics.RectF? = null
+            var cut: Bitmap? = null
             val report = { p: Float -> if (!stop() && p >= shown) { shown = p; _state.update { it.copy(progress = p) } } }
             runCatching {
                 withContext(Dispatchers.Default) {
                     val app = getApplication<Application>()
                     when (mode) {
+                        AiMode.Background -> {
+                            if (!backgroundAvailable) error("background model missing")
+                            val c = BackgroundRemover(app).use { it.cutout(src) { p -> report(p * 0.95f) } }
+                            if (stop()) throw java.util.concurrent.CancellationException()
+                            cut = c
+                            val st = _state.value
+                            BackgroundRemover.compose(src, c, st.backdrop, st.backdropPhoto).also { report(1f) }
+                        }
                         AiMode.Enhance -> {
                             val detail = enhance(app, src, { report(it * 0.9f) }, stop)
                             tone(detail).also { report(1f) }
@@ -118,8 +139,10 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }.onSuccess { out ->
-                if (gen == generation) _state.update { it.copy(result = out, busy = false, progress = null, label = null, focus = focus) }
-                else out.recycle()
+                if (gen == generation) {
+                    Pro.countAiUse(getApplication())
+                    _state.update { it.copy(result = out, busy = false, progress = null, label = null, focus = focus, cutout = cut) }
+                } else out.recycle()
             }.onFailure { e ->
                 if (gen != generation || e is java.util.concurrent.CancellationException) return@onFailure
                 val why = if (e is OutOfMemoryError) "not enough memory, try a smaller photo" else e.message
@@ -128,11 +151,28 @@ class AiViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Changes what goes behind the cut-out subject; no AI rerun needed. */
+    fun setBackdrop(b: Backdrop, photo: Uri? = null) {
+        val st = _state.value
+        val src = st.source ?: return
+        viewModelScope.launch {
+            val pic = if (photo != null) runCatching { withContext(Dispatchers.IO) { store.decode(photo, SOURCE_EDGE) } }.getOrNull()
+                else st.backdropPhoto
+            _state.update { it.copy(backdrop = b, backdropPhoto = pic) }
+            val cut = _state.value.cutout ?: return@launch
+            val out = withContext(Dispatchers.Default) { BackgroundRemover.compose(src, cut, b, pic) }
+            _state.update { it.copy(result = out) }
+        }
+    }
+
+    fun plansShown() = _state.update { it.copy(needPro = false) }
+
     fun save() {
         val out = _state.value.result ?: return
+        val png = _state.value.mode == AiMode.Background && _state.value.backdrop == Backdrop.Clear
         _state.update { it.copy(busy = true, label = "Saving") }
         viewModelScope.launch {
-            runCatching { withContext(Dispatchers.IO) { store.saveJpeg(out, quality = 96) } }
+            runCatching { withContext(Dispatchers.IO) { if (png) store.savePng(out) else store.saveJpeg(out, quality = 96) } }
                 .onSuccess { _state.update { it.copy(busy = false, label = null, message = "Saved ${out.width}×${out.height} to Pictures/Vannam") } }
                 .onFailure { e -> _state.update { it.copy(busy = false, label = null, message = "Save failed: ${e.message}") } }
         }

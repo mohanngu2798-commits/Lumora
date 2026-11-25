@@ -28,11 +28,18 @@ class PhotoStore(private val context: Context) {
     }
 
     /** Saves a JPEG to Pictures/Vannam and returns its content Uri. */
-    fun saveJpeg(bitmap: Bitmap, quality: Int = 95, name: String = "Vannam_${System.currentTimeMillis()}"): Uri {
+    fun saveJpeg(bitmap: Bitmap, quality: Int = 95, name: String = "Vannam_${System.currentTimeMillis()}"): Uri =
+        save(bitmap, Bitmap.CompressFormat.JPEG, quality, "$name.jpg", "image/jpeg")
+
+    /** Saves a PNG (keeps transparency, for cut-outs) to Pictures/Vannam. */
+    fun savePng(bitmap: Bitmap, name: String = "Vannam_${System.currentTimeMillis()}"): Uri =
+        save(bitmap, Bitmap.CompressFormat.PNG, 100, "$name.png", "image/png")
+
+    private fun save(bitmap: Bitmap, format: Bitmap.CompressFormat, quality: Int, file: String, mime: String): Uri {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "$name.jpg")
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.DISPLAY_NAME, file)
+            put(MediaStore.Images.Media.MIME_TYPE, mime)
             put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Vannam")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
@@ -40,7 +47,7 @@ class PhotoStore(private val context: Context) {
             ?: error("Couldn't create the gallery entry")
         try {
             resolver.openOutputStream(uri)?.use { out ->
-                check(bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)) { "JPEG encoding failed" }
+                check(bitmap.compress(format, quality, out)) { "Image encoding failed" }
             } ?: error("Couldn't open the gallery entry")
             values.clear()
             values.put(MediaStore.Images.Media.IS_PENDING, 0)

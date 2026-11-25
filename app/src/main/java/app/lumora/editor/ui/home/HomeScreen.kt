@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -96,17 +97,23 @@ fun HomeScreen(
                 Text("Vannam", maxLines = 1, softWrap = false,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp))
             }
-            if (premiumUntil > System.currentTimeMillis()) {
-                val date = java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault()).format(java.util.Date(premiumUntil))
+            var plans by remember { mutableStateOf(false) }
+            if (plans) app.lumora.editor.ui.pro.PlansSheet(onDismiss = { plans = false })
+            run {
+                val offer = app.lumora.editor.data.Pro.offerActive()
                 Row(
                     Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp)
-                        .clip(RoundedCornerShape(50)).background(Brush.linearGradient(listOf(Magenta, Saffron)))
+                        .clip(RoundedCornerShape(50)).clickable { plans = true }.background(Brush.linearGradient(listOf(Magenta, Saffron)))
                         .padding(horizontal = 12.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Default.WorkspacePremium, null, tint = Color.White, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text("Free till $date", color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                    Text(when {
+                        !offer -> "Pro"
+                        premiumUntil == 0L -> "Pro free at launch"
+                        else -> "Pro free till ${app.lumora.editor.ui.pro.dateOf(premiumUntil)}"
+                    }, color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1)
                 }
             }
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 24.dp)) {

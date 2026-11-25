@@ -22,17 +22,22 @@ class Prefs(context: Context) {
         get() = sp.getStringSet("postTypes", emptySet()) ?: emptySet()
         set(v) = sp.edit().putStringSet("postTypes", v).apply()
 
-    /** When the launch offer was claimed (millis), or 0. Premium is free for [OFFER_DAYS] from then. */
-    var offerStart: Long
-        get() = sp.getLong("offerStart", 0L)
-        set(v) = sp.edit().putLong("offerStart", v).apply()
+    /** Paid Pro access lasts until this time (millis), or 0. */
+    var proUntil: Long
+        get() = sp.getLong("proUntil", 0L)
+        set(v) = sp.edit().putLong("proUntil", v).apply()
 
-    val offerEnds: Long get() = if (offerStart == 0L) 0L else offerStart + OFFER_DAYS * 24L * 60 * 60 * 1000
+    /** Free AI uses: which day they were counted on, and how many. */
+    var aiDay: Long
+        get() = sp.getLong("aiDay", 0L)
+        set(v) = sp.edit().putLong("aiDay", v).apply()
+    var aiCount: Int
+        get() = sp.getInt("aiCount", 0)
+        set(v) = sp.edit().putInt("aiCount", v).apply()
 
     /** True when the answers lean towards social posts, so Feed Studio goes first on home. */
     val studioFirst: Boolean
         get() = interests.any { it in setOf("Seamless carousels", "Panorama posts", "Photo collages", "Feed filters", "Designer fonts") } &&
             "Edit photos" !in interests
 
-    companion object { const val OFFER_DAYS = 90 }
 }

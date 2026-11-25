@@ -13,9 +13,16 @@ android {
         applicationId = "com.vannam.photo"   // Play Store ID, can never change after the first upload
         minSdk = 29          // Android 10+: scoped storage, no storage permission needed
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.8.0"
+        versionCode = 10
+        versionName = "0.9.0"
         // Phones and most emulators; keeps the AI runtime small.
+        // Launch offer: everything free for 15 days from launch day. Pass -PlaunchDate=YYYY-MM-DD for store builds;
+        // without it the offer never ends (test builds).
+        val launch = (project.findProperty("launchDate") as String?)?.takeIf { it.isNotBlank() }
+        val offerEnd = launch?.let {
+            java.time.LocalDate.parse(it).plusDays(15).atStartOfDay(java.time.ZoneId.of("Asia/Kolkata")).toInstant().toEpochMilli()
+        } ?: 0L
+        buildConfigField("long", "LAUNCH_OFFER_END", "${offerEnd}L")
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
@@ -55,6 +62,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

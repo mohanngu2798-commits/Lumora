@@ -121,7 +121,7 @@ fun IntroScreen(onDone: (IntroAnswers) -> Unit) {
                     posts.isNotEmpty(), { page = 4 }) {
                     PostGrid(posts) { label -> posts = if (label in posts) posts - label else posts + label }
                 }
-                else -> Page("Launch offer", "Vannam Premium,\nfree for 3 months", null, "Claim free access",
+                else -> Page("Launch offer", "Vannam Pro,\nfree at launch", null, "Claim free access",
                     true, { onDone(IntroAnswers(use, interests, posts)) }) {
                     LaunchOffer()
                 }
@@ -244,9 +244,7 @@ private fun PostGrid(selected: Set<String>, onToggle: (String) -> Unit) {
 private fun LaunchOffer() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf(
-            "Every tool, look and Post Studio feature",
-            "AI Enhance and AI upscale",
-            "Full-resolution saves, no watermark",
+            *app.lumora.editor.data.Pro.perks.toTypedArray(),
         ).forEach { line ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Check, null, tint = OnInk, modifier = Modifier.size(18.dp))
@@ -255,8 +253,7 @@ private fun LaunchOffer() {
             }
         }
         Spacer(Modifier.height(6.dp))
-        PlanRow("Monthly", "₹199 per month", badge = null)
-        PlanRow("Yearly", "₹83 per month (₹999 per year)", badge = "SAVE 58%")
+        app.lumora.editor.data.Pro.plans.forEach { PlanRow(it.title, "${it.price} ${it.note}", badge = it.badge) }
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Magenta, Saffron)))
                 .padding(16.dp),
@@ -265,7 +262,7 @@ private fun LaunchOffer() {
             Icon(Icons.Default.CardGiftcard, null, tint = Color.White)
             Spacer(Modifier.width(12.dp))
             Column {
-                Text("Launch offer: ₹0 for 3 months", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("Launch offer: ₹0 for ${app.lumora.editor.data.Pro.OFFER_DAYS} days", color = Color.White, fontWeight = FontWeight.SemiBold)
                 Text("No payment details. Nothing is charged.", color = Color.White.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.bodySmall)
             }
