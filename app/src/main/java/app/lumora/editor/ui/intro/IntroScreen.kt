@@ -244,7 +244,7 @@ private fun PostGrid(selected: Set<String>, onToggle: (String) -> Unit) {
 private fun LaunchOffer() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf(
-            "Every tool, look and Instagram Studio feature",
+            "Every tool, look and Post Studio feature",
             "AI Enhance and AI upscale",
             "Full-resolution saves, no watermark",
         ).forEach { line ->
