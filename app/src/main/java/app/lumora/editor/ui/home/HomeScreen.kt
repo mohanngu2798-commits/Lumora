@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,6 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.lumora.editor.R
+import app.lumora.editor.data.CollageDraft
+import app.lumora.editor.data.EditorDraft
+import app.lumora.editor.data.StudioDraft
+import androidx.compose.foundation.horizontalScroll
 import app.lumora.editor.ui.editor.GradientButton
 import app.lumora.editor.ui.motion.squishClickable
 import app.lumora.editor.ui.motion.STUDIO_NAME
@@ -46,7 +51,21 @@ import kotlinx.coroutines.delay
 
 /** Start screen: a slowly drifting wall of colourful prints, one bold line, and clear ways in. */
 @Composable
-fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> Unit, studioFirst: Boolean = false, premiumUntil: Long = 0L) {
+fun HomeScreen(
+    onEdit: (Uri) -> Unit,
+    onEnhance: (Uri) -> Unit,
+    onStudio: () -> Unit,
+    onAi: () -> Unit,
+    onCollage: () -> Unit,
+    studioFirst: Boolean = false,
+    premiumUntil: Long = 0L,
+    editorDraft: EditorDraft? = null,
+    studioDraft: StudioDraft? = null,
+    collageDraft: CollageDraft? = null,
+    onResumeEditor: (EditorDraft) -> Unit = {},
+    onResumeStudio: (StudioDraft) -> Unit = {},
+    onResumeCollage: (CollageDraft) -> Unit = {},
+) {
     val editPicker = rememberLauncherForActivityResult(PickVisualMedia()) { it?.let(onEdit) }
     val enhancePicker = rememberLauncherForActivityResult(PickVisualMedia()) { it?.let(onEnhance) }
     val image = PickVisualMediaRequest(PickVisualMedia.ImageOnly)
@@ -67,7 +86,7 @@ fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> 
             ) {
                 Image(painterResource(R.drawable.ic_logo), contentDescription = null, modifier = Modifier.size(30.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Vannamayam", maxLines = 1, softWrap = false,
+                Text("Vannam", maxLines = 1, softWrap = false,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp))
             }
             if (premiumUntil > System.currentTimeMillis()) {
@@ -84,7 +103,7 @@ fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> 
                 }
             }
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 24.dp)) {
-                Text("Photo editor and feed studio", style = MaterialTheme.typography.bodyMedium,
+                Text("Photo editor, feed, collage and AI studios", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 Text("Make every photo\ncolourful.", style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp, lineHeight = 38.sp))
@@ -107,12 +126,45 @@ fun HomeScreen(onEdit: (Uri) -> Unit, onEnhance: (Uri) -> Unit, onStudio: () -> 
                     art = { StudioArt(it) }, onClick = onStudio,
                 )
             }
-            Appear(0) { if (studioFirst) studioCard() else editorCard() }
-            Appear(1) { if (studioFirst) editorCard() else studioCard() }
-            Appear(2) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val drafts = listOfNotNull(
+                editorDraft?.let { Triple("Photo edit", it.savedAt) { onResumeEditor(it) } },
+                studioDraft?.let { Triple(STUDIO_NAME, it.savedAt) { onResumeStudio(it) } },
+                collageDraft?.let { Triple("Collage", it.savedAt) { onResumeCollage(it) } },
+            ).sortedByDescending { it.second }
+            if (drafts.isNotEmpty()) Appear(0) {
+                Column {
+                    Text("Continue where you left off", style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        drafts.forEach { (label, at, go) ->
+                            val ago = android.text.format.DateUtils.getRelativeTimeSpanString(at).toString()
+                            FeaturePill(Icons.Default.History, "$label · $ago", go)
+                        }
+                    }
+                }
+            }
+            Appear(1) { if (studioFirst) studioCard() else editorCard() }
+            Appear(2) { if (studioFirst) editorCard() else studioCard() }
+            Appear(3) {
+                SectionCard(
+                    key = "collage", title = "Collage Studio",
+                    subtitle = "Grid layouts and freestyle collages, up to 20 photos",
+                    art = { CollageArt(it) }, onClick = onCollage,
+                )
+            }
+            Appear(4) {
+                SectionCard(
+                    key = "ai", title = "AI Studio",
+                    subtitle = "Restore faces, AI Enhance and AI upscale, all on your phone",
+                    art = { AiArt(it) }, onClick = onAi,
+                )
+            }
+            Appear(5) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     FeaturePill(Icons.Default.AutoAwesome, "AI Enhance", enhance)
                     FeaturePill(Icons.Default.ViewCarousel, "Carousel", onStudio)
+                    FeaturePill(Icons.Default.GridView, "Collage", onCollage)
                 }
             }
         }
@@ -154,7 +206,7 @@ private fun SectionCard(key: String, title: String, subtitle: String, art: @Comp
 private fun EditorArt(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "editorArt")
     val split by t.animateFloat(0.3f, 0.7f, infiniteRepeatable(tween(3200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "split")
-    Canvas(modifier) {
+    Canvas(modifier.clipToBounds()) {
         val p = prints[0]
         drawRect(Brush.linearGradient(listOf(Color(0xFF9A8F86), Color(0xFF6E6660), Color(0xFF3F3A37)), end = Offset(size.width, size.height)))
         drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.35f), Color.Transparent),
@@ -172,12 +224,52 @@ private fun EditorArt(modifier: Modifier) {
     }
 }
 
+/** Collage artwork: a grid whose cells slowly breathe between layouts. */
+@Composable
+private fun CollageArt(modifier: Modifier) {
+    val t = rememberInfiniteTransition(label = "collageArt")
+    val k by t.animateFloat(0f, 1f, infiniteRepeatable(tween(4200, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "k")
+    Canvas(modifier.clipToBounds().background(PhotoCanvas)) {
+        val g = 6.dp.toPx(); val h = size.height - g * 2; val w = h * 1.6f; val x0 = (size.width - w) / 2
+        val split = 0.45f + 0.15f * k; val splitY = 0.55f - 0.1f * k
+        val cells = listOf(
+            floatArrayOf(0f, 0f, split, 1f), floatArrayOf(split, 0f, 1f - split, splitY),
+            floatArrayOf(split, splitY, (1f - split) / 2, 1f - splitY), floatArrayOf(split + (1f - split) / 2, splitY, (1f - split) / 2, 1f - splitY),
+        )
+        cells.forEachIndexed { i, c ->
+            val p = prints[(i + 2) % prints.size]
+            val o = Offset(x0 + c[0] * w + g / 2, g + c[1] * h + g / 2); val sz = Size(c[2] * w - g, c[3] * h - g)
+            drawRoundRect(Brush.linearGradient(p, start = o, end = Offset(o.x + sz.width, o.y + sz.height)), o, sz, CornerRadius(10f))
+        }
+    }
+}
+
+/** AI artwork: a soft, blurred print sharpening as a scan line passes. */
+@Composable
+private fun AiArt(modifier: Modifier) {
+    val t = rememberInfiniteTransition(label = "aiArt")
+    val scan by t.animateFloat(0.15f, 0.85f, infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "scan")
+    Canvas(modifier.clipToBounds()) {
+        val p = prints[3]
+        drawRect(Brush.linearGradient(listOf(p[0].copy(alpha = 0.5f), p[2].copy(alpha = 0.6f)), end = Offset(size.width, size.height)))
+        val x = size.width * scan
+        clipRect(right = x) {
+            drawRect(Brush.linearGradient(p, end = Offset(size.width, size.height)))
+            for (i in 0 until 14) {
+                val cx = size.width * ((i * 37) % 100) / 100f; val cy = size.height * ((i * 53) % 100) / 100f
+                drawCircle(Color.White.copy(alpha = 0.8f), radius = 2.dp.toPx(), center = Offset(cx, cy))
+            }
+        }
+        drawLine(Brush.verticalGradient(listOf(Color.Transparent, Color.White, Color.Transparent)), Offset(x, 0f), Offset(x, size.height), strokeWidth = 3.dp.toPx())
+    }
+}
+
 /** Studio artwork: a carousel strip gliding sideways, with dashed slide seams. */
 @Composable
 private fun StudioArt(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "studioArt")
     val slide by t.animateFloat(0f, 1f, infiniteRepeatable(tween(9000, easing = LinearEasing)), label = "slide")
-    Canvas(modifier.background(PhotoCanvas)) {
+    Canvas(modifier.clipToBounds().background(PhotoCanvas)) {
         val h = size.height * 0.78f; val w = h * 0.8f; val top = (size.height - h) / 2
         val period = w * 4
         val shift = slide * period
@@ -242,7 +334,7 @@ fun PrintWall(modifier: Modifier) {
     val t = rememberInfiniteTransition(label = "wall")
     val drift by t.animateFloat(0f, 1f, infiniteRepeatable(tween(28000, easing = LinearEasing)), label = "drift")
     val frame = PanelHigh
-    Canvas(modifier.background(PhotoCanvas)) {
+    Canvas(modifier.clipToBounds().background(PhotoCanvas)) {
         val cardW = size.width * 0.42f
         val cardH = cardW * 1.25f
         val gap = cardW * 0.08f

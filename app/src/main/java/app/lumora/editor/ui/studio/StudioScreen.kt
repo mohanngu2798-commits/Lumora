@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.lumora.editor.model.Background
 import app.lumora.editor.model.Carousel
 import app.lumora.editor.model.InstaLooks
+import app.lumora.editor.model.FilterLibrary
 import app.lumora.editor.model.Layer
 import app.lumora.editor.model.SlideFormat
 import app.lumora.editor.ui.editor.ColorChip
@@ -86,7 +87,14 @@ fun StudioScreen(vm: StudioViewModel, onBack: () -> Unit) {
     val pick = { picker.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }
     val snackbar = remember { SnackbarHostState() }
     var tab by remember { mutableStateOf(StudioTab.Layout) }
-    BackHandler(onBack = onBack)
+    var askExit by remember { mutableStateOf(false) }
+    val leave = { if (vm.isDirty) { askExit = true } else { onBack() } }
+    BackHandler(onBack = leave)
+    if (askExit) app.lumora.editor.ui.editor.ExitDialog(
+        onSaveDraft = { askExit = false; vm.saveDraft(); onBack() },
+        onDiscard = { askExit = false; vm.discard(); onBack() },
+        onStay = { askExit = false },
+    )
     LaunchedEffect(s.message) { s.message?.let { snackbar.showSnackbar(it); vm.messageShown() } }
     LaunchedEffect(s.selected) { if (s.selected != null && tab != StudioTab.Filters) tab = StudioTab.Photo }
 
@@ -96,7 +104,7 @@ fun StudioScreen(vm: StudioViewModel, onBack: () -> Unit) {
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") } },
+                navigationIcon = { IconButton(onClick = leave) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back to editor") } },
                 title = { Text(STUDIO_NAME, maxLines = 1, softWrap = false, style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.SemiBold)) },
                 actions = {
                     IconButton(onClick = pick) { Icon(Icons.Default.AddPhotoAlternate, "Add photos") }
@@ -147,7 +155,7 @@ fun StudioScreen(vm: StudioViewModel, onBack: () -> Unit) {
                                 }
                                 StudioTab.Filters -> Column {
                                     ChipScroll {
-                                        InstaLooks.all.forEachIndexed { i, (name, _) ->
+                                        (InstaLooks.all + FilterLibrary.exclusive.filters).forEachIndexed { i, (name, _) ->
                                             val current = s.selected?.let { s.filters[it] ?: "None" }
                                             ColorChip(name, Spectrum[i % Spectrum.size], current == name) {
                                                 vm.applyFilter(name, all = s.selected == null)

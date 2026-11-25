@@ -46,7 +46,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 
 private enum class EditorPanel(val label: String, val icon: ImageVector) {
-    Looks("Looks", Icons.Default.Palette),
+    Looks("Filters", Icons.Default.Palette),
     Tools("Tools", Icons.Default.AutoAwesome),
     Adjust("Adjust", Icons.Default.Tune),
     Curves("Curves", Icons.Default.Timeline),
@@ -63,6 +63,9 @@ fun EditorScreen(vm: EditorViewModel, onHome: () -> Unit) {
     var panel by rememberSaveable { mutableStateOf(EditorPanel.Looks) }
     var comparing by remember { mutableStateOf(false) }
     var showSave by remember { mutableStateOf(false) }
+    var askExit by remember { mutableStateOf(false) }
+    val leave = { if (vm.isDirty) { askExit = true } else { onHome() } }
+    androidx.activity.compose.BackHandler(onBack = leave)
 
     LaunchedEffect(state.message) {
         state.message?.let { snackbar.showSnackbar(it); vm.messageShown() }
@@ -74,7 +77,7 @@ fun EditorScreen(vm: EditorViewModel, onHome: () -> Unit) {
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                navigationIcon = { IconButton(onClick = onHome) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Home") } },
+                navigationIcon = { IconButton(onClick = leave) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Home") } },
                 title = {},
                 actions = {
                     AiPill(active = state.aiEnhanced, enabled = state.preview != null && !state.busy, onClick = vm::toggleAiEnhance)
@@ -163,6 +166,11 @@ fun EditorScreen(vm: EditorViewModel, onHome: () -> Unit) {
         }
     }
 
+    if (askExit) ExitDialog(
+        onSaveDraft = { askExit = false; vm.saveDraft(); onHome() },
+        onDiscard = { askExit = false; vm.discard(); onHome() },
+        onStay = { askExit = false },
+    )
     if (showSave) SaveSheet(onDismiss = { showSave = false }) { scale -> showSave = false; vm.export(scale) }
 }
 

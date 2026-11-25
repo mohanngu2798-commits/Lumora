@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Vannamayam means "colourful": a clean canvas with a vivid five-colour accent spectrum.
+// Vannam means "colourful": a clean canvas with a vivid five-colour accent spectrum.
 val Magenta = Color(0xFFE8336F)
 val Saffron = Color(0xFFFF7A2F)
 val Turmeric = Color(0xFFFFB800)

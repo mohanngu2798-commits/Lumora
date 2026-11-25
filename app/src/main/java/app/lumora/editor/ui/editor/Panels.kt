@@ -31,36 +31,82 @@ import androidx.compose.ui.unit.dp
 import app.lumora.editor.model.CurveChannel
 import app.lumora.editor.model.CurvePoints
 import app.lumora.editor.model.EditParams
-import app.lumora.editor.model.Looks
+import app.lumora.editor.model.FilterLibrary
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlin.math.roundToInt
 
 @Composable
 internal fun LooksPanel(params: EditParams, vm: EditorViewModel) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        itemsIndexed(Looks.all) { i, (name, look) ->
-            val selected = (params.lookName ?: "Original") == name
-            val a = Spectrum[i % Spectrum.size]; val b = Spectrum[(i + 2) % Spectrum.size]
-            val scale by animateFloatAsState(if (selected) 1.1f else 1f, Springs.squish(), label = "look")
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.squishClickable(pressedScale = 0.86f) { vm.commit(params.withLook(look, name)) }
-                    .graphicsLayer { scaleX = scale; scaleY = scale },
-            ) {
-                Box(
-                    Modifier.size(64.dp).clip(RoundedCornerShape(16.dp))
-                        .background(if (name == "Original") Brush.linearGradient(listOf(PanelHigh, PanelHigh)) else Brush.linearGradient(listOf(a, b)))
-                        .border(2.dp, if (selected) OnInk else Color.Transparent, RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center,
-                ) { Text(name.take(1), color = Color.White, fontWeight = FontWeight.Bold) }
-                Spacer(Modifier.height(6.dp))
-                Text(name, style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) OnInk else MaterialTheme.colorScheme.onSurfaceVariant)
+    val groups = FilterLibrary.groups
+    var groupIndex by rememberSaveable {
+        mutableIntStateOf(groups.indexOfFirst { g -> g.filters.any { it.first == params.lookName } }.coerceAtLeast(0))
+    }
+    val group = groups[groupIndex]
+    val thumbs by vm.thumbs.collectAsState()
+    LaunchedEffect(group, vm.state.collectAsState().value.preview) { vm.loadThumbs(group) }
+    val look = params.lookName?.let { FilterLibrary.find(it) }
+
+    Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            groups.forEachIndexed { i, g ->
+                val label = if (i == 0) "\u2728 ${g.name}" else g.name
+                ColorChip(label, Spectrum[i % Spectrum.size], i == groupIndex) { groupIndex = i }
             }
         }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            item(key = "none") {
+                FilterTile("None", null, params.lookName == null || params.lookName == "Original", 0) {
+                    vm.commit(params.withLook(EditParams(), "Original"))
+                }
+            }
+            itemsIndexed(group.filters, key = { _, f -> f.first }) { i, (name, look) ->
+                if (name == "Original") return@itemsIndexed
+                FilterTile(name, thumbs[name], params.lookName == name, i + 1) { vm.applyFilter(name, look) }
+            }
+        }
+        if (look != null && params.lookName != "Original") {
+            ValueSlider("Strength", Magenta, 0f..1f, params.lookStrength,
+                onChange = { vm.applyFilter(params.lookName!!, look, it, commitNow = false) },
+                onDone = { vm.commit() },
+                onReset = { vm.applyFilter(params.lookName!!, look, 1f) })
+        }
+    }
+}
+
+@Composable
+private fun FilterTile(name: String, thumb: android.graphics.Bitmap?, selected: Boolean, index: Int, onClick: () -> Unit) {
+    val scale by animateFloatAsState(if (selected) 1.08f else 1f, Springs.squish(), label = "look")
+    val a = Spectrum[index % Spectrum.size]; val b = Spectrum[(index + 2) % Spectrum.size]
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(68.dp).squishClickable(pressedScale = 0.86f, onClick = onClick)
+            .graphicsLayer { scaleX = scale; scaleY = scale },
+    ) {
+        Box(
+            Modifier.size(64.dp).clip(RoundedCornerShape(16.dp))
+                .background(if (name == "None") Brush.linearGradient(listOf(PanelHigh, PanelHigh)) else Brush.linearGradient(listOf(a, b)))
+                .border(2.dp, if (selected) OnInk else Color.Transparent, RoundedCornerShape(16.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (thumb != null) {
+                val img = remember(thumb) { thumb.asImageBitmap() }
+                androidx.compose.foundation.Image(img, null, Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            } else if (name == "None") {
+                Text("Off", color = OnInk, fontWeight = FontWeight.Bold)
+            } else Text(name.take(1), color = Color.White, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            color = if (selected) OnInk else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -1,7 +1,7 @@
 package app.lumora.editor.model
 
 /**
- * Social-feed filters for Instagram Studio. Original Vannamayam tunings that cover the
+ * Social-feed filters for Instagram Studio. Original Vannam tunings that cover the
  * classic feed styles: warm vintage, faded film, cool tones, punchy contrast and mono.
  */
 object InstaLooks {

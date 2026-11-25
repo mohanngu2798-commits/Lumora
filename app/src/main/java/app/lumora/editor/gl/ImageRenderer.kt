@@ -132,6 +132,10 @@ class ImageRenderer {
         GLES30.glUniform3f(u("uLeakA"), ((ca shr 16) and 0xFF) / 255f, ((ca shr 8) and 0xFF) / 255f, (ca and 0xFF) / 255f)
         GLES30.glUniform3f(u("uLeakB"), ((cb shr 16) and 0xFF) / 255f, ((cb shr 8) and 0xFF) / 255f, (cb and 0xFF) / 255f)
         GLES30.glUniform1f(u("uOutAspect"), vw.toFloat() / vh)
+        val ts = p.toneShadow; val th = p.toneHighlight
+        GLES30.glUniform3f(u("uToneS"), ((ts shr 16) and 0xFF) / 255f, ((ts shr 8) and 0xFF) / 255f, (ts and 0xFF) / 255f)
+        GLES30.glUniform3f(u("uToneH"), ((th shr 16) and 0xFF) / 255f, ((th shr 8) and 0xFF) / 255f, (th and 0xFF) / 255f)
+        GLES30.glUniform1f(u("uTone"), p.toneAmount)
 
         val pos = GLES30.glGetAttribLocation(program, "aPos")
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)

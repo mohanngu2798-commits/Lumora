@@ -13,8 +13,8 @@ android {
         applicationId = "app.lumora.editor"
         minSdk = 29          // Android 10+: scoped storage, no storage permission needed
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
         // Phones and most emulators; keeps the AI runtime small.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
@@ -58,3 +58,18 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
 }
+
+// The face restoration model is larger than GitHub's 100 MB file limit, so it is stored in parts under
+// /models and joined into the app's assets before each build.
+val joinModels by tasks.registering {
+    val parts = rootProject.fileTree("models") { include("gfpgan_v1_4.tflite.part*") }
+    val out = file("src/main/assets/gfpgan_v1_4.tflite")
+    inputs.files(parts)
+    outputs.file(out)
+    doLast {
+        val sorted = parts.files.sortedBy { it.name }
+        if (sorted.isEmpty()) return@doLast
+        out.outputStream().use { o -> sorted.forEach { p -> p.inputStream().use { it.copyTo(o) } } }
+    }
+}
+tasks.named("preBuild") { dependsOn(joinModels) }

@@ -10,3 +10,4 @@ build/
 *.jks
 *.keystore
 keystore.properties
+/app/src/main/assets/gfpgan_v1_4.tflite

@@ -27,13 +27,13 @@ class PhotoStore(private val context: Context) {
         }.let { if (it.config != Bitmap.Config.ARGB_8888) it.copy(Bitmap.Config.ARGB_8888, false) else it }
     }
 
-    /** Saves a JPEG to Pictures/Vannamayam and returns its content Uri. */
-    fun saveJpeg(bitmap: Bitmap, quality: Int = 95, name: String = "Vannamayam_${System.currentTimeMillis()}"): Uri {
+    /** Saves a JPEG to Pictures/Vannam and returns its content Uri. */
+    fun saveJpeg(bitmap: Bitmap, quality: Int = 95, name: String = "Vannam_${System.currentTimeMillis()}"): Uri {
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name.jpg")
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Vannamayam")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Vannam")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)

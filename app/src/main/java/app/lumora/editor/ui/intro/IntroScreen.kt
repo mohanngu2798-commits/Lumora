@@ -99,12 +99,12 @@ fun IntroScreen(onDone: (IntroAnswers) -> Unit) {
             when (p) {
                 -1 -> Splash()
                 0 -> Page(
-                    eyebrow = "Welcome to Vannamayam",
+                    eyebrow = "Welcome to Vannam",
                     title = "Make photos that\nstand out",
                     body = "Pro editing, AI enhance and a studio for your feed. Free, and everything stays on your phone.",
                     button = "Get started", enabled = true, onNext = { page = 1 },
                 ) {}
-                1 -> Page("Personalise your experience", "How will you use\nVannamayam?", null, "Continue", use != null, { page = 2 }) {
+                1 -> Page("Personalise your experience", "How will you use\nVannam?", null, "Continue", use != null, { page = 2 }) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         uses.forEach { (icon, label) -> OptionRow(icon, label, use == label) { use = label } }
                     }
@@ -121,7 +121,7 @@ fun IntroScreen(onDone: (IntroAnswers) -> Unit) {
                     posts.isNotEmpty(), { page = 4 }) {
                     PostGrid(posts) { label -> posts = if (label in posts) posts - label else posts + label }
                 }
-                else -> Page("Launch offer", "Vannamayam Premium,\nfree for 3 months", null, "Claim free access",
+                else -> Page("Launch offer", "Vannam Premium,\nfree for 3 months", null, "Claim free access",
                     true, { onDone(IntroAnswers(use, interests, posts)) }) {
                     LaunchOffer()
                 }
@@ -143,7 +143,7 @@ private fun Splash() {
             modifier = Modifier.graphicsLayer { scaleX = s.value; scaleY = s.value; alpha = a.value }) {
             Image(painterResource(R.drawable.ic_logo), null, Modifier.size(96.dp))
             Spacer(Modifier.height(8.dp))
-            Text("Vannamayam", style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold))
+            Text("Vannam", style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold))
         }
     }
 }

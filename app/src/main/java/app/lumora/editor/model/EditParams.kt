@@ -26,15 +26,34 @@ data class EditParams(
     val blurShape: BlurShape = BlurShape.Radial,
     val lightLeak: Float = 0f,    // 0..1
     val leakStyle: Int = 0,       // index into LeakStyles
+    val toneShadow: Int = 0x808080,  // split-tone colour for shadows (RGB)
+    val toneHighlight: Int = 0x808080, // split-tone colour for highlights (RGB)
+    val toneAmount: Float = 0f,   // 0..1
     val curves: Curves = Curves(),
     val crop: CropSpec = CropSpec(),
     val lookName: String? = null,
+    val lookStrength: Float = 1f, // 0..1, how strongly the named look is applied
 ) {
     /** Same geometry, no tonal changes. Used for the press-and-hold "compare" view. */
     fun originalLook(): EditParams = EditParams(crop = crop)
 
     /** Applies a look's tones while keeping the user's crop. */
-    fun withLook(look: EditParams, name: String): EditParams = look.copy(crop = crop, lookName = name)
+    fun withLook(look: EditParams, name: String, strength: Float = 1f): EditParams =
+        look.scaled(strength).copy(crop = crop, lookName = name, lookStrength = strength)
+
+    /** This look blended toward "no change" by [s]: 0 = original photo, 1 = full look. */
+    fun scaled(s: Float): EditParams {
+        if (s >= 1f) return this
+        fun c(p: CurvePoints) = CurvePoints(p.points.map { (x, y) -> x to (x + (y - x) * s) })
+        return copy(
+            exposure = exposure * s, contrast = contrast * s, highlights = highlights * s, shadows = shadows * s,
+            saturation = saturation * s, vibrance = vibrance * s, warmth = warmth * s, tint = tint * s,
+            fade = fade * s, sharpen = sharpen * s, vignette = vignette * s, grain = grain * s,
+            clarity = clarity * s, dehaze = dehaze * s, hdr = hdr * s, glow = glow * s, lensBlur = lensBlur * s,
+            lightLeak = lightLeak * s, toneAmount = toneAmount * s,
+            curves = Curves(c(curves.master), c(curves.red), c(curves.green), c(curves.blue)),
+        )
+    }
 }
 
 /**

@@ -18,10 +18,14 @@ object Exporter {
     fun maxTextureSize(): Int = withContext { val v = IntArray(1)
         GLES30.glGetIntegerv(GLES30.GL_MAX_TEXTURE_SIZE, v, 0); v[0] }
 
-    fun render(source: Bitmap, params: EditParams): Bitmap = withContext {
+    fun render(source: Bitmap, params: EditParams): Bitmap = renderAll(source, listOf(params)).first()
+
+    /** Renders one photo with several edits, sharing one GL context and upload. Used for filter thumbnails. */
+    fun renderAll(source: Bitmap, list: List<EditParams>): List<Bitmap> = withContext {
         val renderer = ImageRenderer()
         try {
             renderer.setImage(source)
+            list.map { params ->
             val (w, h) = params.crop.outputSize(source.width, source.height)
 
             val tex = IntArray(1); val fbo = IntArray(1)
@@ -48,6 +52,7 @@ object Exporter {
 
             pixels.position(0)
             Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(pixels) }
+            }
         } finally {
             renderer.release()
         }

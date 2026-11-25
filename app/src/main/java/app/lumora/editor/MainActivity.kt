@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -29,16 +28,24 @@ import app.lumora.editor.ui.editor.EditorViewModel
 import app.lumora.editor.ui.home.HomeScreen
 import app.lumora.editor.ui.intro.IntroScreen
 import app.lumora.editor.data.Prefs
+import app.lumora.editor.data.Drafts
+import app.lumora.editor.ui.ai.AiStudioScreen
+import app.lumora.editor.ui.ai.AiViewModel
+import app.lumora.editor.ui.collage.CollageScreen
+import app.lumora.editor.ui.collage.CollageViewModel
 import app.lumora.editor.ui.studio.StudioScreen
 import app.lumora.editor.ui.studio.StudioViewModel
 import app.lumora.editor.ui.theme.LumoraTheme
 
-private enum class Screen { Intro, Home, Editor, Studio }
+private enum class Screen { Intro, Home, Editor, Studio, Ai, Collage }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 class MainActivity : ComponentActivity() {
     private val vm: EditorViewModel by viewModels()
     private val studio: StudioViewModel by viewModels()
+    private val ai: AiViewModel by viewModels()
+    private val collage: CollageViewModel by viewModels()
+    private val drafts by lazy { Drafts(this) }
     private var openFromIntent by mutableStateOf(false)
     private val prefs by lazy { Prefs(this) }
 
@@ -48,11 +55,12 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) incomingImage(intent)?.let { vm.open(it); openFromIntent = true }
         setContent {
             LumoraTheme {
+                // Surface sets the default text and icon colour for the theme (white in dark mode).
+                androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
                 var screen by rememberSaveable { mutableStateOf(
                     when { openFromIntent -> Screen.Editor; !prefs.onboarded -> Screen.Intro; else -> Screen.Home }) }
                 if (openFromIntent) { screen = Screen.Editor; openFromIntent = false }
                 var studioFirst by rememberSaveable { mutableStateOf(prefs.studioFirst) }
-                BackHandler(enabled = screen == Screen.Editor || screen == Screen.Studio) { screen = Screen.Home }
                 SharedTransitionLayout {
                 AnimatedContent(
                     targetState = screen,
@@ -74,11 +82,22 @@ class MainActivity : ComponentActivity() {
                             onEdit = { vm.open(it); screen = Screen.Editor },
                             onEnhance = { vm.openAndEnhance(it); screen = Screen.Editor },
                             onStudio = { screen = Screen.Studio },
+                            onAi = { screen = Screen.Ai },
+                            editorDraft = drafts.editor(),
+                            studioDraft = drafts.studio(),
+                            onResumeEditor = { d -> vm.restoreDraft(d); screen = Screen.Editor },
+                            onResumeStudio = { d -> studio.restoreDraft(d); screen = Screen.Studio },
+                            onCollage = { screen = Screen.Collage },
+                            collageDraft = drafts.collage(),
+                            onResumeCollage = { d -> collage.restoreDraft(d); screen = Screen.Collage },
                         )
                         Screen.Editor -> EditorScreen(vm, onHome = { screen = Screen.Home })
                         Screen.Studio -> StudioScreen(studio, onBack = { screen = Screen.Home })
+                        Screen.Ai -> AiStudioScreen(ai, onBack = { screen = Screen.Home })
+                        Screen.Collage -> CollageScreen(collage, onBack = { screen = Screen.Home })
                     }
                     }
+                }
                 }
                 }
             }

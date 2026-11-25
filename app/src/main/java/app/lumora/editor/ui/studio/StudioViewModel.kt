@@ -5,10 +5,13 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.lumora.editor.data.Drafts
 import app.lumora.editor.data.PhotoStore
+import app.lumora.editor.data.StudioDraft
 import app.lumora.editor.gl.Blur
 import app.lumora.editor.gl.Exporter
 import app.lumora.editor.model.InstaLooks
+import app.lumora.editor.model.FilterLibrary
 import kotlinx.coroutines.asCoroutineDispatcher
 import java.util.concurrent.Executors
 import app.lumora.editor.model.Background
@@ -27,6 +30,7 @@ import kotlinx.coroutines.withContext
 data class StudioState(
     val carousel: Carousel = Carousel(),
     val photos: Map<Long, Bitmap> = emptyMap(),
+    val uris: Map<Long, Uri> = emptyMap(),
     /** Photo ids in the order they were added, used by the auto layouts. */
     val order: List<Long> = emptyList(),
     val blurred: Bitmap? = null,
@@ -43,6 +47,7 @@ enum class AutoLayout(val label: String) { Seams("Seamless"), Panorama("Panorama
 
 class StudioViewModel(app: Application) : AndroidViewModel(app) {
     private val store = PhotoStore(app)
+    private val drafts = Drafts(app)
     private val _state = MutableStateFlow(StudioState())
     val state: StateFlow<StudioState> = _state.asStateFlow()
     private var nextId = 1L
@@ -54,7 +59,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val ids = if (all) s.order else listOfNotNull(s.selected)
         if (ids.isEmpty() || s.busy) return
-        val look = InstaLooks.all.firstOrNull { it.first == name }?.second ?: return
+        val look = (InstaLooks.all + FilterLibrary.all).firstOrNull { it.first == name }?.second ?: return
         _state.update { it.copy(busy = true) }
         viewModelScope.launch {
             runCatching {
@@ -78,13 +83,15 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(busy = true) }
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) {
-                uris.take(10).mapNotNull { u -> runCatching { nextId++ to store.decode(u, PHOTO_EDGE) }.getOrNull() }
+                uris.take(10).mapNotNull { u ->
+                    runCatching { drafts.keepAccess(u); Triple(nextId++, store.decode(u, PHOTO_EDGE), u) }.getOrNull()
+                }
             }
             _state.update { s ->
-                val photos = s.photos + loaded
+                val photos = s.photos + loaded.map { it.first to it.second }
                 val order = s.order + loaded.map { it.first }
                 val blurred = s.blurred ?: loaded.firstOrNull()?.second?.let { Blur.downscale(it, 48) }
-                s.copy(photos = photos, order = order, blurred = blurred, busy = false,
+                s.copy(photos = photos, uris = s.uris + loaded.map { it.first to it.third }, order = order, blurred = blurred, busy = false,
                     message = if (loaded.size < uris.size) "Some photos couldn't be opened" else null)
             }
             // First photos in: arrange them so there's something good to start from.
@@ -150,14 +157,47 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                     val stamp = System.currentTimeMillis()
                     withContext(Dispatchers.IO) {
                         slides.forEachIndexed { i, b ->
-                            store.saveJpeg(b, quality = 95, name = "Vannamayam_carousel_${stamp}_${i + 1}")
+                            store.saveJpeg(b, quality = 95, name = "Vannam_carousel_${stamp}_${i + 1}")
                             Thread.sleep(30) // distinct save times keep gallery order = slide order
                         }
                     }
                     slides.size
                 }
-            }.onSuccess { n -> _state.update { it.copy(busy = false, message = "Saved $n slides to Pictures/Vannamayam. Post them in order 1 to $n.") } }
+            }.onSuccess { n -> _state.update { it.copy(busy = false, message = "Saved $n slides to Pictures/Vannam. Post them in order 1 to $n.") } }
              .onFailure { e -> _state.update { it.copy(busy = false, message = "Couldn't save: ${e.message}") } }
+        }
+    }
+
+    val isDirty: Boolean get() = _state.value.photos.isNotEmpty()
+
+    fun saveDraft() {
+        val s = _state.value
+        drafts.saveStudio(StudioDraft(s.carousel, s.uris, s.order, s.filters, System.currentTimeMillis()))
+        _state.value = StudioState()
+    }
+
+    fun discard() { drafts.clearStudio(); _state.value = StudioState() }
+
+    /** Re-opens a saved carousel: decodes its photos again and re-applies their filters. */
+    fun restoreDraft(d: StudioDraft) {
+        _state.value = StudioState(busy = true)
+        viewModelScope.launch {
+            val photos = withContext(Dispatchers.IO) {
+                d.uris.mapNotNull { (id, u) -> runCatching { id to store.decode(u, PHOTO_EDGE) }.getOrNull() }.toMap()
+            }
+            nextId = (d.uris.keys.maxOrNull() ?: 0L) + 1
+            val carousel = d.carousel.copy(layers = d.carousel.layers.filter { it.id in photos })
+            val filtered = withContext(glThread) {
+                d.filters.filterKeys { it in photos }.mapNotNull { (id, name) ->
+                    (InstaLooks.all + FilterLibrary.all).firstOrNull { it.first == name }?.let { id to Exporter.render(photos.getValue(id), it.second) }
+                }.toMap()
+            }
+            _state.value = StudioState(
+                carousel = carousel, photos = photos, uris = d.uris.filterKeys { it in photos },
+                order = d.order.filter { it in photos }, filters = d.filters.filterKeys { it in photos }, filtered = filtered,
+                blurred = d.order.firstNotNullOfOrNull { photos[it] }?.let { Blur.downscale(it, 48) },
+                message = if (photos.size < d.uris.size) "Some photos are no longer available" else null,
+            )
         }
     }
 

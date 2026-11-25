@@ -46,6 +46,8 @@ uniform vec2 uBlurMTexel, uBlurLTexel;
 uniform float uClarity, uDehaze, uHdr, uGlow, uLensBlur, uLeak;
 uniform int uBlurShape;       // 0 = radial, 1 = linear band
 uniform vec3 uLeakA, uLeakB;
+uniform vec3 uToneS, uToneH;
+uniform float uTone;
 uniform float uOutAspect;     // output width / height
 
 float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
@@ -149,6 +151,14 @@ void main() {
     float sat = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
     c = mix(vec3(l), c, 1.0 + uVibrance * (1.0 - sat));
     c = mix(vec3(l), c, 1.0 + uSaturation);
+
+    // Split toning: tint shadows and highlights with two colours, keeping brightness.
+    if (uTone > 0.0) {
+        float lt = luma(c);
+        vec3 tone = mix(uToneS, uToneH, smoothstep(0.1, 0.9, lt));
+        vec3 tinted = clamp(tone * (lt / max(luma(tone), 0.08)), 0.0, 1.0);
+        c = mix(c, tinted, uTone * 0.75);
+    }
 
     // Fade lifts blacks and softens whites.
     c = mix(c, c * 0.82 + 0.12, uFade);

@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.lumora.editor.ai.Upscaler
+import app.lumora.editor.data.Drafts
+import app.lumora.editor.data.EditorDraft
 import app.lumora.editor.data.PhotoStore
 import app.lumora.editor.model.AutoEnhance
 import app.lumora.editor.gl.Exporter
@@ -37,12 +39,43 @@ data class EditorState(
 
 class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val store = PhotoStore(app)
+    private val drafts = Drafts(app)
     private val glThread = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
 
     private val _state = MutableStateFlow(EditorState())
     val state: StateFlow<EditorState> = _state.asStateFlow()
 
     private var originalPreview: Bitmap? = null
+
+    /** Small previews of each filter on the open photo, keyed by filter name. */
+    private val _thumbs = MutableStateFlow<Map<String, Bitmap>>(emptyMap())
+    val thumbs: StateFlow<Map<String, Bitmap>> = _thumbs.asStateFlow()
+    private var thumbFor: Bitmap? = null
+    private val thumbGroups = HashSet<String>()
+
+    /** Renders the filter thumbnails for [group] on the current photo, once per photo. */
+    fun loadThumbs(group: app.lumora.editor.model.FilterGroup) {
+        val src = _state.value.preview ?: return
+        if (thumbFor !== src) { thumbFor = src; thumbGroups.clear(); _thumbs.value = emptyMap() }
+        if (!thumbGroups.add(group.name)) return
+        viewModelScope.launch {
+            val out = runCatching {
+                withContext(glThread) {
+                    val edge = 132f / maxOf(src.width, src.height)
+                    val small = Bitmap.createScaledBitmap(src, maxOf(1, (src.width * edge).toInt()), maxOf(1, (src.height * edge).toInt()), true)
+                    val crop = app.lumora.editor.model.CropSpec(aspect = 1f)
+                    Exporter.renderAll(small, group.filters.map { it.second.copy(crop = crop) }).also { small.recycle() }
+                }
+            }.getOrNull() ?: run { thumbGroups.remove(group.name); return@launch }
+            if (thumbFor === src) _thumbs.value = _thumbs.value + group.filters.map { it.first }.zip(out)
+        }
+    }
+
+    /** Applies a filter by name at [strength], keeping the crop. */
+    fun applyFilter(name: String, look: EditParams, strength: Float = 1f, commitNow: Boolean = true) {
+        val p = _state.value.params.withLook(look, name, strength)
+        if (commitNow) commit(p) else preview(p)
+    }
 
     // Undo history holds committed edits; slider drags update `params` live and commit on release.
     private val history = ArrayList<EditParams>()
@@ -91,14 +124,40 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun open(uri: Uri) {
+    /** True when leaving would lose changes. */
+    val isDirty: Boolean get() = _state.value.let { it.preview != null && (it.params != EditParams() || it.aiEnhanced) }
+
+    fun saveDraft() {
+        val s = _state.value
+        val uri = s.sourceUri ?: return
+        drafts.saveEditor(EditorDraft(uri, s.params, System.currentTimeMillis()))
+        close()
+    }
+
+    fun discard() { drafts.clearEditor(); close() }
+
+    /** Forgets the current photo so the next visit starts fresh. */
+    private fun close() {
+        originalPreview = null
+        history.clear(); cursor = -1
+        _state.value = EditorState()
+    }
+
+    fun restoreDraft(d: EditorDraft) {
+        open(d.uri, startParams = d.params)
+    }
+
+    fun open(uri: Uri) = open(uri, startParams = EditParams())
+
+    private fun open(uri: Uri, startParams: EditParams) {
+        drafts.keepAccess(uri)
         _state.update { it.copy(busy = true) }
         viewModelScope.launch {
             runCatching { withContext(Dispatchers.IO) { store.decode(uri, PREVIEW_EDGE) } }
                 .onSuccess { bmp ->
-                    history.clear(); history += EditParams(); cursor = 0
+                    history.clear(); history += startParams; cursor = 0
                     originalPreview = null
-                    _state.value = EditorState(sourceUri = uri, preview = bmp)
+                    _state.value = EditorState(sourceUri = uri, preview = bmp, params = startParams)
                     if (pendingEnhance) { pendingEnhance = false; toggleAiEnhance() }
                 }
                 .onFailure { e -> _state.update { it.copy(busy = false, message = "Couldn't open photo: ${e.message}") } }
@@ -161,7 +220,7 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 if (scale > 1) out = withContext(Dispatchers.Default) { aiUpscale(out, scale) }
                 withContext(Dispatchers.IO) { store.saveJpeg(out) }
-                "Saved ${out.width}×${out.height} to Pictures/Vannamayam".also { out.recycle() }
+                "Saved ${out.width}×${out.height} to Pictures/Vannam".also { out.recycle() }
             }.onSuccess { msg -> _state.update { it.copy(busy = false, progress = null, busyLabel = null, message = msg) } }
              .onFailure { e ->
                  val why = if (e is OutOfMemoryError) "not enough memory, try 2x" else e.message
