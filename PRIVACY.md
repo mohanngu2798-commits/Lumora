@@ -1,14 +1,19 @@
 # Vannam Privacy Policy
 
-_Last updated: [DATE]_
+Effective date: 26 November 2026
 
-Vannam is a photo editor that works entirely on your device.
+Vannam ("the app") is a photo editing app for Android, package `com.vannam.photo`. This policy explains what the app does with your information.
 
-- **No data collection.** Vannam does not collect, store, or share any personal data.
-- **No internet access.** The app does not request internet permission, so your photos never leave your phone.
-- **Photos.** Vannam only opens the photos you choose with the Android photo picker, and saves your edited copies to `Pictures/Vannam` on your device. Originals are never modified.
-- **No ads, no analytics, no accounts.**
+**We do not collect your data.** The app has no internet access. It does not create accounts and does not use analytics, advertising or tracking tools.
 
-If this ever changes (for example, if optional cloud features are added), this policy will be updated before the change ships.
+**Your photos stay on your device.** Photos you open are edited on your phone, including all AI features such as face restoration, enhancement, upscaling and background removal. Photos are never uploaded or shared with us or anyone else.
 
-Contact: [YOUR EMAIL]
+**Photo access.** The app uses Android's photo picker to open only the photos you choose. Edited photos are saved to your gallery when you tap Save.
+
+**Drafts.** Unfinished edits are stored privately inside the app on your device. They are deleted if you discard them or uninstall the app.
+
+**Children.** The app does not knowingly collect any information from anyone, including children under 13.
+
+**Changes.** If this policy changes, the new version will be posted at this link with a new effective date.
+
+**Contact.** Questions: support.vannam.app@gmail.com
