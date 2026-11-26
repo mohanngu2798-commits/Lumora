@@ -53,12 +53,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) incomingImage(intent)?.let { vm.open(it); openFromIntent = true }
+        val demo = if (savedInstanceState == null) demoScreen(intent) else null
         setContent {
             LumoraTheme {
                 // Surface sets the default text and icon colour for the theme (white in dark mode).
                 androidx.compose.material3.Surface(color = androidx.compose.material3.MaterialTheme.colorScheme.background) {
                 var screen by rememberSaveable { mutableStateOf(
-                    when { openFromIntent -> Screen.Editor; !prefs.onboarded -> Screen.Intro; else -> Screen.Home }) }
+                    when { demo != null -> demo; openFromIntent -> Screen.Editor; !prefs.onboarded -> Screen.Intro; else -> Screen.Home }) }
                 if (openFromIntent) { screen = Screen.Editor; openFromIntent = false }
                 var studioFirst by rememberSaveable { mutableStateOf(prefs.studioFirst) }
                 SharedTransitionLayout {
@@ -106,6 +107,32 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         incomingImage(intent)?.let { vm.open(it); openFromIntent = true }
+    }
+
+    /** Debug builds only: opens a screen filled with example pictures, used to take store screenshots. */
+    private fun demoScreen(intent: Intent?): Screen? {
+        if (!BuildConfig.DEBUG) return null
+        val name = intent?.getStringExtra("demo") ?: return null
+        fun res(id: Int) = Uri.parse("android.resource://$packageName/$id")
+        val wall = app.lumora.editor.ui.home.Samples.wall.map(::res)
+        return when (name) {
+            "intro" -> Screen.Intro
+            "home" -> { prefs.onboarded = true; Screen.Home }
+            "editor" -> { vm.openAndEnhance(res(R.drawable.sample_wall_7)); Screen.Editor }
+            "ai" -> Screen.Ai
+            "background" -> {
+                ai.open(res(R.drawable.sample_fashion), app.lumora.editor.ui.ai.AiMode.Background); Screen.Ai
+            }
+            "studio" -> {
+                studio.addPhotos(listOf(wall[0], wall[6], wall[1]))
+                studio.applyLayout(app.lumora.editor.ui.studio.AutoLayout.Seams); Screen.Studio
+            }
+            "collage" -> {
+                collage.start(app.lumora.editor.model.CollageMode.Grid,
+                    app.lumora.editor.ui.home.Samples.collage.map(::res)); Screen.Collage
+            }
+            else -> null
+        }
     }
 
     private fun incomingImage(intent: Intent?): Uri? = when (intent?.action) {
