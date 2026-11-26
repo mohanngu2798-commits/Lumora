@@ -18,10 +18,10 @@ shot() { # name demo wait
   adb exec-out screencap -p > "$out/$1.png"
   echo "took $1 ($(stat -c %s "$out/$1.png") bytes)"
 }
-shot 1-home home 8
-shot 2-editor editor 12
+shot 1-home home 25
+shot 2-editor editor 20
 shot 3-background background 120
 shot 4-ai ai 6
-shot 5-studio studio 10
-shot 6-collage collage 10
+shot 5-studio studio 20
+shot 6-collage collage 15
 shot 7-intro intro 8

@@ -118,14 +118,14 @@ class MainActivity : ComponentActivity() {
         return when (name) {
             "intro" -> Screen.Intro
             "home" -> { prefs.onboarded = true; Screen.Home }
-            "editor" -> { vm.openAndEnhance(res(R.drawable.sample_wall_7)); Screen.Editor }
+            "editor" -> { vm.open(res(R.drawable.sample_wall_7)); Screen.Editor }
             "ai" -> Screen.Ai
             "background" -> {
                 ai.open(res(R.drawable.sample_fashion), app.lumora.editor.ui.ai.AiMode.Background); Screen.Ai
             }
             "studio" -> {
-                studio.addPhotos(listOf(wall[0], wall[6], wall[1]))
-                studio.applyLayout(app.lumora.editor.ui.studio.AutoLayout.Seams); Screen.Studio
+                studio.startWith(app.lumora.editor.ui.studio.AutoLayout.Dump)
+                studio.addPhotos(listOf(wall[0], wall[7], wall[6], wall[2])); Screen.Studio
             }
             "collage" -> {
                 collage.start(app.lumora.editor.model.CollageMode.Grid,
