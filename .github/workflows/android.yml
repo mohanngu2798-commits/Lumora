@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -36,6 +38,14 @@ jobs:
         with:
           name: vannam-play-bundle
           path: app/build/outputs/bundle/release/*.aab
+      # Manual runs also publish the bundle as a release, so it can be signed outside CI without GitHub secrets.
+      - name: Publish bundle for signing
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "bundle-${{ github.run_id }}" app/build/outputs/bundle/release/app-release.aab \
+            --target "${{ github.sha }}" --prerelease --title "Bundle ${{ github.run_id }}" --notes "Unsigned release bundle"
       # One installable APK (face model included) for Galaxy Store, Xiaomi GetApps and Indus Appstore.
       - name: Build store APK
         if: env.VANNAM_KEYSTORE_FILE != ''
