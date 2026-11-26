@@ -23,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import app.lumora.editor.ui.editor.EditorScreen
 import app.lumora.editor.ui.editor.EditorViewModel
 import app.lumora.editor.ui.home.HomeScreen
@@ -118,20 +120,40 @@ class MainActivity : ComponentActivity() {
         return when (name) {
             "intro" -> Screen.Intro
             "home" -> { prefs.onboarded = true; Screen.Home }
-            "editor" -> { vm.open(res(R.drawable.sample_wall_7)); Screen.Editor }
+            "editor" -> {
+                vm.open(res(R.drawable.sample_wall_7))
+                demoAfter({ vm.state.value.preview != null }) {
+                    app.lumora.editor.model.FilterLibrary.exclusive.filters.first().let { (n, p) -> vm.applyFilter(n, p) }
+                }
+                Screen.Editor
+            }
             "ai" -> Screen.Ai
+            "restore" -> { ai.open(res(resources.getIdentifier("demo_old_face", "drawable", packageName)), app.lumora.editor.ui.ai.AiMode.Restore); Screen.Ai }
             "background" -> {
-                ai.open(res(R.drawable.sample_fashion), app.lumora.editor.ui.ai.AiMode.Background); Screen.Ai
+                ai.open(res(R.drawable.sample_fashion), app.lumora.editor.ui.ai.AiMode.Background)
+                demoAfter({ ai.state.value.cutout != null }) { ai.setBackdrop(app.lumora.editor.ai.Backdrop.Sky) }
+                Screen.Ai
             }
             "studio" -> {
-                studio.startWith(app.lumora.editor.ui.studio.AutoLayout.Dump)
-                studio.addPhotos(listOf(wall[0], wall[7], wall[6], wall[2])); Screen.Studio
+                studio.startWith(app.lumora.editor.ui.studio.AutoLayout.Seams)
+                studio.addPhotos(listOf(wall[0], wall[7], wall[2])); Screen.Studio
+            }
+            "panorama" -> {
+                studio.startWith(app.lumora.editor.ui.studio.AutoLayout.Panorama)
+                studio.addPhotos(listOf(wall[6])); Screen.Studio
             }
             "collage" -> {
                 collage.start(app.lumora.editor.model.CollageMode.Grid,
                     app.lumora.editor.ui.home.Samples.collage.map(::res)); Screen.Collage
             }
             else -> null
+        }
+    }
+
+    /** Runs [action] once [ready] holds, checking every half second for up to five minutes. */
+    private fun demoAfter(ready: () -> Boolean, action: () -> Unit) {
+        lifecycleScope.launch {
+            repeat(600) { if (ready()) { kotlinx.coroutines.delay(500); action(); return@launch }; kotlinx.coroutines.delay(500) }
         }
     }
 

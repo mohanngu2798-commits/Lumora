@@ -11,17 +11,19 @@ adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 100
 adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
 adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4
 adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
-shot() { # name demo wait
-  adb shell am force-stop $pkg
-  adb shell am start -n $act --es demo "$2" >/dev/null
-  sleep "$3"
-  adb exec-out screencap -p > "$out/$1.png"
-  echo "took $1 ($(stat -c %s "$out/$1.png") bytes)"
-}
-shot 1-home home 25
-shot 2-editor editor 20
-shot 3-background background 120
-shot 4-ai ai 6
-shot 5-studio studio 20
-shot 6-collage collage 15
-shot 7-intro intro 8
+start() { adb shell am force-stop $pkg; adb shell am start -n $act --es demo "$1" >/dev/null; }
+cap() { adb exec-out screencap -p > "$out/$1.png"; echo "took $1 ($(stat -c %s "$out/$1.png") bytes)"; }
+shot() { start "$2"; sleep "$3"; cap "$1"; }
+# Warm-up run so first-launch work (dex, shaders) doesn't land in a screenshot.
+start home; sleep 30
+shot home home 30
+shot intro intro 15
+shot editor editor 30
+shot ai ai 10
+shot collage collage 25
+shot background background 150
+shot restore restore 300
+start studio; sleep 25
+adb shell input swipe 800 1100 420 1100 1500; sleep 4; cap studio
+start panorama; sleep 25
+adb shell input swipe 800 1100 420 1100 1500; sleep 4; cap panorama
