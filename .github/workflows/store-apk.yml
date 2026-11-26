@@ -1,0 +1,22 @@
+name: Publish store APK
+on:
+  push:
+    paths: ['store/*.part*']
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Join and publish the signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in store/*.sha256; do
+            v=$(basename "$f" .apk.sha256)
+            cat store/$v.apk.part* > "$v.apk"
+            echo "$(cat $f)  $v.apk" | sha256sum -c
+            gh release create "$v" "$v.apk" --target "${{ github.sha }}" --title "Vannam ${v#vannam-}" \
+              --notes "Signed APK for app stores." || gh release upload "$v" "$v.apk" --clobber
+          done
